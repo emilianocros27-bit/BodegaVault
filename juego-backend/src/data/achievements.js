@@ -1,0 +1,20 @@
+// Definiciones de logros — la verificación ocurre en el backend al guardar stats
+module.exports = [
+  { id:'first_bodega',    icon:'🔑', name:'Primera Bodega',     desc:'Abre tu primera bodega.' },
+  { id:'bodega_10',       icon:'🏭', name:'Bodeguero',          desc:'Abre 10 bodegas.' },
+  { id:'first_rare',      icon:'💙', name:'Primer Raro',        desc:'Obtén tu primer objeto raro.' },
+  { id:'first_epic',      icon:'💜', name:'Primer Épico',       desc:'Obtén tu primer objeto épico.' },
+  { id:'first_legendary', icon:'🏆', name:'Primer Legendario',  desc:'Obtén tu primer legendario.' },
+  { id:'first_unique',    icon:'💫', name:'Objeto Único',       desc:'Obtén un objeto único.' },
+  { id:'rich',            icon:'💰', name:'Rico',               desc:'Alcanza 10,000 monedas.' },
+  { id:'millionaire',     icon:'🤑', name:'Millonario',         desc:'Alcanza 100,000 monedas.' },
+  { id:'sold_10',         icon:'💼', name:'Comerciante',        desc:'Completa 10 ventas.' },
+  { id:'repaired_5',      icon:'🔧', name:'Manitas',            desc:'Repara 5 objetos.' },
+  { id:'bj_10',           icon:'🃏', name:'Tahúr',              desc:'Gana 10 manos de blackjack.' },
+  { id:'bj_streak5',      icon:'🔥', name:'Racha de Fuego',     desc:'Consigue racha de 5 victorias.' },
+  { id:'level_5',         icon:'⭐', name:'Aprendiz',           desc:'Alcanza el nivel 5.' },
+  { id:'level_10',        icon:'🌟', name:'Veterano',           desc:'Alcanza el nivel 10.' },
+  { id:'level_25',        icon:'✨', name:'Maestro',            desc:'Alcanza el nivel 25.' },
+  { id:'collector_20',    icon:'📚', name:'Coleccionista',      desc:'Descubre 20 objetos distintos.' },
+  { id:'collector_all',   icon:'🎖️', name:'Completista',        desc:'Descubre todos los objetos.' },
+];

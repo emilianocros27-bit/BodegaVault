@@ -1,0 +1,56 @@
+module.exports = [
+  {
+    id: 'basica', name: 'Bodega Básica', cost: 200,
+    itemCount: { min:2, max:4 },
+    rarityWeights:    { common:72, rare:25, epic:3, legendary:0, unique:0 },
+    conditionWeights: { new:10, used:35, damaged:35, very_damaged:20 },
+    unidentifiedChance: 0.15,
+  },
+  {
+    id: 'estandar', name: 'Bodega Estándar', cost: 500,
+    itemCount: { min:3, max:5 },
+    rarityWeights:    { common:58, rare:34, epic:7, legendary:1, unique:0 },
+    conditionWeights: { new:15, used:40, damaged:30, very_damaged:15 },
+    unidentifiedChance: 0.20,
+  },
+  {
+    id: 'premium', name: 'Bodega Premium', cost: 1200,
+    itemCount: { min:4, max:6 },
+    rarityWeights:    { common:40, rare:38, epic:18, legendary:3, unique:1 },
+    conditionWeights: { new:25, used:45, damaged:20, very_damaged:10 },
+    unidentifiedChance: 0.30,
+  },
+  {
+    id: 'rara', name: 'Bodega Rara', cost: 3000,
+    itemCount: { min:3, max:5 },
+    rarityWeights:    { common:18, rare:42, epic:30, legendary:8, unique:2 },
+    conditionWeights: { new:20, used:30, damaged:30, very_damaged:20 },
+    unidentifiedChance: 0.50,
+  },
+  {
+    id: 'misteriosa', name: 'Bodega Misteriosa', cost: 8000,
+    itemCount: { min:4, max:7 },
+    rarityWeights:    { common:10, rare:30, epic:38, legendary:17, unique:5 },
+    conditionWeights: { new:30, used:30, damaged:25, very_damaged:15 },
+    unidentifiedChance: 0.60,
+  },
+  {
+    id: 'magnate', name: 'Bóveda del Magnate', cost: 150000,
+    itemCount: { min:5, max:8 },
+    rarityWeights:    { common:0, rare:0, epic:45, legendary:40, unique:15 },
+    conditionWeights: { new:60, used:35, damaged:5, very_damaged:0 },
+    unidentifiedChance: 0.0,
+    minLevel: 15,
+  },
+  {
+    id: 'abismo', name: 'Caja del Abismo', cost: 250000,
+    itemCount: { min:2, max:4 },
+    rarityWeights:    { common:0, rare:0, epic:0, legendary:0, unique:0, exotic:0 },
+    // pesos reales usados internamente — ver abismoWeights
+    abismoWeights:    { epic:45, legendary:35, unique:18, exotic:2 },
+    conditionWeights: { new:80, used:20, damaged:0, very_damaged:0 },
+    unidentifiedChance: 0.0,
+    minLevel: 20,
+    abismoOnly: true,
+  },
+];

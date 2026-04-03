@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BodegaVault — Coleccionista de Rarezas</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+  <!-- ══ PANTALLA DE AUTH ══════════════════════════════════ -->
+  <div id="auth-screen">
+    <div class="auth-box">
+      <div class="auth-logo">
+        <span class="auth-logo-icon">🏭</span>
+        <h1>BodegaVault</h1>
+        <p>Coleccionista de Rarezas</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login"    onclick="showAuthTab('login')">Iniciar Sesión</button>
+        <button class="auth-tab"        data-tab="register" onclick="showAuthTab('register')">Registrarse</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="auth-login" class="auth-form">
+        <div class="form-group">
+          <label>Email o usuario</label>
+          <input type="text" id="login-user" placeholder="jugador1 o tu@email.com" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="login-pass" placeholder="Tu contraseña" autocomplete="current-password">
+        </div>
+        <div id="auth-error" class="auth-error hidden"></div>
+        <button class="btn-gold auth-submit" id="btn-login" onclick="doLogin()">
+          Entrar al juego →
+        </button>
+        <p class="auth-hint">¿No tienes cuenta? <a onclick="showAuthTab('register')">Regístrate gratis</a></p>
+      </div>
+
+      <!-- REGISTRO -->
+      <div id="auth-register" class="auth-form hidden">
+        <div class="form-group">
+          <label>Nombre de usuario</label>
+          <input type="text" id="reg-username" placeholder="Solo letras, números y _" maxlength="30" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="tu@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label>Contraseña <span style="color:var(--text2)">(mín. 6 caracteres)</span></label>
+          <input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+        </div>
+        <div id="auth-error-reg" class="auth-error hidden"></div>
+        <button class="btn-gold auth-submit" id="btn-register" onclick="doRegister()">
+          Crear cuenta →
+        </button>
+        <p class="auth-hint">¿Ya tienes cuenta? <a onclick="showAuthTab('login')">Inicia sesión</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ JUEGO PRINCIPAL ══════════════════════════════════ -->
+  <div id="game-container" class="hidden">
+
+    <!-- HUD SUPERIOR -->
+    <header id="hud">
+      <div class="hud-money">💰 <span id="money-display">500</span></div>
+      <div class="hud-center">
+        <h1 class="game-logo">BodegaVault</h1>
+      </div>
+      <div class="hud-right">
+        <span id="voucher-badge" class="voucher-badge hidden"></span>
+        <span id="level-display" class="hud-level-badge">Nv. 1</span>
+        <div class="xp-bar-wrap">
+          <div id="xp-fill" class="xp-fill"></div>
+        </div>
+        <span id="xp-display" class="xp-text">0 / 100 XP</span>
+        <span id="hud-user" class="hud-avatar" onclick="switchScreen('perfil')" title="Mi Perfil">🧑</span>
+        <button class="btn-logout" onclick="doLogout()" title="Cerrar sesión">⏻</button>
+      </div>
+    </header>
+
+    <!-- NAVEGACIÓN -->
+    <nav id="nav">
+      <button class="nav-btn active" data-screen="hub"          title="Inicio">🏠<span>Inicio</span></button>
+      <button class="nav-btn"        data-screen="bodegas"      title="Bodegas">🏭<span>Bodegas</span></button>
+      <button class="nav-btn"        data-screen="inventario"   title="Inventario">📦<span>Inventario</span></button>
+      <button class="nav-btn"        data-screen="mercado"      title="Vender">💼<span>Vender</span></button>
+      <button class="nav-btn"        data-screen="subastas"     title="Subastas">🔨<span>Subastas</span></button>
+      <button class="nav-btn"        data-screen="intercambios" title="Intercambios">🤝<span>Intercambios</span></button>
+      <button class="nav-btn"        data-screen="coleccion"    title="Colección">📊<span>Colección</span></button>
+      <button class="nav-btn"        data-screen="cartas"       title="Cartas">🃏<span>Cartas</span></button>
+      <button class="nav-btn"        data-screen="perfil"       title="Mi Perfil">👤<span>Perfil</span></button>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="content"><!-- renderizado por JS --></main>
+
+  </div><!-- /game-container -->
+
+  <!-- MODAL DE APERTURA DE BODEGA -->
+  <div id="bodega-anim" class="hidden">
+    <div id="bodega-anim-inner">
+      <div id="bodega-anim-header">
+        <span id="bodega-anim-icon"></span>
+        <h2 id="bodega-anim-title"></h2>
+        <p id="bodega-anim-subtitle">Abriendo bodega...</p>
+      </div>
+      <div id="bodega-anim-items"></div>
+      <button id="bodega-anim-close" class="btn-primary hidden" onclick="closeBodegaAnim()">
+        ✅ Recoger Todo
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL GENÉRICO -->
+  <div id="modal-backdrop" class="hidden" onclick="hideModal()"></div>
+  <div id="modal" class="hidden">
+    <button class="modal-close" onclick="hideModal()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+
+  <!-- MODAL LEVEL UP -->
+  <div id="levelup-overlay" class="hidden">
+    <div id="levelup-box">
+      <div id="levelup-stars">⭐</div>
+      <h2 id="levelup-title">¡Subiste de Nivel!</h2>
+      <div id="levelup-levels"></div>
+      <div id="levelup-rewards"></div>
+      <button class="btn-gold" onclick="hideLevelUp()">¡Genial!</button>
+    </div>
+  </div>
+
+  <!-- MODAL RULETA -->
+  <div id="roulette-overlay" class="hidden">
+    <div id="roulette-box">
+      <h2>🎰 Ruleta Horaria</h2>
+      <div id="roulette-wheel-wrap">
+        <div id="roulette-pointer">▼</div>
+        <div id="roulette-wheel"></div>
+      </div>
+      <div id="roulette-legend"></div>
+      <div id="roulette-result" class="hidden"></div>
+      <div id="roulette-controls">
+        <button class="btn-gold" id="btn-spin" onclick="doSpin()">¡Girar!</button>
+        <button class="btn-outline" onclick="hideRoulette()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING OVERLAY -->
+  <div id="loading-overlay" class="hidden">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p id="loading-text">Cargando...</p>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIONES TOAST -->
+  <div id="toast-container"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
