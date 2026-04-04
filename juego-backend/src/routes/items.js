@@ -223,7 +223,7 @@ router.post('/:id/repair',
 
         let repairXpR = null;
         if (repairResult.success) {
-          repairXpR = applyXP(stats.level, stats.xp, stats.xp_next, XP_REWARDS.repair_success);
+          repairXpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, XP_REWARDS.repair_success);
           await client.query(
             `UPDATE user_stats SET xp=$2,level=$3,xp_next=$4 WHERE user_id=$1`,
             [req.user.id, repairXpR.xp, repairXpR.level, repairXpR.xpNext]

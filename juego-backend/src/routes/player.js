@@ -23,7 +23,7 @@ router.post('/daily', requireAuth, async (req, res) => {
       }
 
       const amount = 100 + stats.level * 20;
-      const xpR    = applyXP(stats.level, stats.xp, stats.xp_next, XP_REWARDS.daily_claim);
+      const xpR    = applyXP(+stats.level, +stats.xp, +stats.xp_next, XP_REWARDS.daily_claim);
       const levelRewardsResult = await processLevelRewards(client, req.user.id, xpR.levelsGained, stats.level);
 
       await client.query(
@@ -94,7 +94,7 @@ router.post('/roulette', requireAuth, async (req, res) => {
       for (const p of PRIZES) { rand -= p.weight; if (rand <= 0) { prize = p; break; } }
 
       // Aplicar XP base por girar
-      const xpR = applyXP(stats.level, stats.xp, stats.xp_next, XP_REWARDS.roulette_spin + (prize.type==='xp' ? prize.value : 0));
+      const xpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, XP_REWARDS.roulette_spin + (prize.type==='xp' ? prize.value : 0));
       const levelRewardsResult = await processLevelRewards(client, req.user.id, xpR.levelsGained, stats.level);
 
       let moneyDelta  = 0;
@@ -252,7 +252,7 @@ router.post('/blackjack', requireAuth, async (req, res) => {
       const newBjWins    = outcome === 'win'  ? stats.bj_wins   + 1 : stats.bj_wins;
       const newBjLosses  = outcome === 'lose' ? stats.bj_losses + 1 : stats.bj_losses;
       const newBestStreak = Math.max(stats.bj_best_streak, streak || 0);
-      const xpR = applyXP(stats.level, stats.xp, stats.xp_next, xpGained);
+      const xpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, xpGained);
       const levelRewardsResult = await processLevelRewards(client, req.user.id, xpR.levelsGained, stats.level);
 
       await client.query(

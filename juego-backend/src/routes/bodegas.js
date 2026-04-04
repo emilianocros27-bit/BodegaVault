@@ -91,7 +91,7 @@ router.post('/open',
         const baseXP   = XP_REWARDS.bodega_base[bodega_id] ?? 8;
         const rarityXP = items.reduce((sum, item) => sum + (XP_REWARDS.item_rarity[item.rarity] ?? 1), 0);
         const gainedXP = baseXP + rarityXP;
-        const xpResult = applyXP(stats.level, stats.xp, stats.xp_next, gainedXP);
+        const xpResult = applyXP(+stats.level, +stats.xp, +stats.xp_next, gainedXP);
 
         // Insertar items en BD
         const insertedItems = [];

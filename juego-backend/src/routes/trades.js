@@ -106,7 +106,7 @@ router.post('/:id/accept',
           `SELECT level, xp, xp_next FROM user_stats WHERE user_id=$1 FOR UPDATE`,
           [req.user.id]
         );
-        const xpR = applyXP(stats.level, stats.xp, stats.xp_next, XP_REWARDS.accept_trade);
+        const xpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, XP_REWARDS.accept_trade);
         await client.query(
           `UPDATE user_stats SET trades_done=trades_done+1, xp=$2,level=$3,xp_next=$4 WHERE user_id=$1`,
           [req.user.id, xpR.xp, xpR.level, xpR.xpNext]

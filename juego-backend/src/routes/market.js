@@ -51,7 +51,7 @@ router.post('/offers/:id/accept',
         await client.query(`DELETE FROM items WHERE id=$1 AND user_id=$2`, [offer.item_id, req.user.id]);
 
         // Pagar al jugador
-        const xpR = applyXP(stats.level, stats.xp, stats.xp_next, XP_REWARDS.sell_item);
+        const xpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, XP_REWARDS.sell_item);
         await client.query(
           `UPDATE user_stats SET
             money       = money + $2,
