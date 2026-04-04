@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS friendships (
   UNIQUE(requester, addressee)
 );
 
-CREATE INDEX idx_friendships_requester ON friendships(requester);
-CREATE INDEX idx_friendships_addressee ON friendships(addressee);
+CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee);
 
 -- ── SUBASTAS ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS auctions (
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS auctions (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_auctions_active   ON auctions(status, ends_at) WHERE status = 'active';
-CREATE INDEX idx_auctions_seller   ON auctions(seller_id);
+CREATE INDEX IF NOT EXISTS idx_auctions_active   ON auctions(status, ends_at) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_auctions_seller   ON auctions(seller_id);
 
 -- ── PUJAS DE SUBASTA ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS auction_bids (
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS auction_bids (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_auction_bids_auction ON auction_bids(auction_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_auction ON auction_bids(auction_id, created_at DESC);
 
 -- ── NUEVAS COLUMNAS EN user_stats ────────────────────────
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS roulette_last        TIMESTAMPTZ;

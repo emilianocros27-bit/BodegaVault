@@ -54,9 +54,9 @@ CREATE TABLE IF NOT EXISTS items (
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_items_user_id   ON items(user_id);
-CREATE INDEX idx_items_for_sale  ON items(for_sale) WHERE for_sale = TRUE;
-CREATE INDEX idx_items_rarity    ON items(rarity);
+CREATE INDEX IF NOT EXISTS idx_items_user_id   ON items(user_id);
+CREATE INDEX IF NOT EXISTS idx_items_for_sale  ON items(for_sale) WHERE for_sale = TRUE;
+CREATE INDEX IF NOT EXISTS idx_items_rarity    ON items(rarity);
 
 -- ── COLECCIÓN DESCUBIERTA ─────────────────────────────────
 CREATE TABLE IF NOT EXISTS collection (
@@ -86,8 +86,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_tx_user_id    ON transactions(user_id);
-CREATE INDEX idx_tx_created_at ON transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tx_user_id    ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_tx_created_at ON transactions(created_at DESC);
 
 -- ── OFERTAS DE NPC (COMPRAS) ──────────────────────────────
 CREATE TABLE IF NOT EXISTS npc_offers (
@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS npc_offers (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_npc_offers_user   ON npc_offers(user_id, status);
-CREATE INDEX idx_npc_offers_item   ON npc_offers(item_id);
+CREATE INDEX IF NOT EXISTS idx_npc_offers_user   ON npc_offers(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_npc_offers_item   ON npc_offers(item_id);
 
 -- ── TRATOS NPC (INTERCAMBIOS) ─────────────────────────────
 CREATE TABLE IF NOT EXISTS npc_trades (
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS npc_trades (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_npc_trades_user ON npc_trades(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_npc_trades_user ON npc_trades(user_id, status);
 
 -- ── SESIONES JWT (blacklist para logout) ──────────────────
 CREATE TABLE IF NOT EXISTS token_blacklist (
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS token_blacklist (
 );
 
 -- limpiar tokens expirados automáticamente (pg cron o manual)
-CREATE INDEX idx_token_bl_exp ON token_blacklist(expires_at);
+CREATE INDEX IF NOT EXISTS idx_token_bl_exp ON token_blacklist(expires_at);
 
 -- ── NOTIFICACIONES ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS notifications (
@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_notif_user_unread ON notifications(user_id, read) WHERE read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_notif_user_unread ON notifications(user_id, read) WHERE read = FALSE;
 
 -- ── FUNCIÓN: actualizar updated_at automáticamente ────────
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -147,14 +147,17 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_user_stats_updated_at ON user_stats;
 CREATE TRIGGER trg_user_stats_updated_at
   BEFORE UPDATE ON user_stats
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_items_updated_at ON items;
 CREATE TRIGGER trg_items_updated_at
   BEFORE UPDATE ON items
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
