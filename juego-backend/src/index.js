@@ -10,7 +10,9 @@ const rateLimit   = require('express-rate-limit');
 const app = express();
 
 // ── Seguridad y parsing ───────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 app.use(compression());
 app.use(cors({
   origin: process.env.CORS_ORIGIN
