@@ -1,0 +1,12 @@
+{
+  "name": "bodegavault",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "cd juego-backend && node src/index.js",
+    "migrate": "cd juego-backend && node src/config/migrate.js",
+    "build": "cd juego-backend && npm install"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
