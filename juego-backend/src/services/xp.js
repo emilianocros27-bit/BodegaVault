@@ -38,7 +38,7 @@ function applyXP(currentLevel, currentXP, currentXPNext, gainedXP) {
   // Sanear entradas corruptas antes de operar
   let level  = (Number.isFinite(currentLevel)  && currentLevel  > 0)  ? Math.min(currentLevel,  9999)  : 1;
   let xp     = (Number.isFinite(currentXP)     && currentXP     >= 0) ? Math.min(currentXP,     1e12)  : 0;
-  let xpNext = (Number.isFinite(currentXPNext) && currentXPNext > 0)  ? Math.min(currentXPNext, 1e12)  : xpForLevel(level + 1);
+  let xpNext = (Number.isFinite(currentXPNext) && currentXPNext > 0)  ? Math.min(currentXPNext, 1e12)  : xpForLevel(level);
   xp += (Number.isFinite(gainedXP) ? gainedXP : 0);
   const levelsGained  = [];
   const allRewards    = [];
@@ -46,7 +46,7 @@ function applyXP(currentLevel, currentXP, currentXPNext, gainedXP) {
   while (xp >= xpNext) {
     xp    -= xpNext;
     level += 1;
-    xpNext = xpForLevel(level + 1);
+    xpNext = xpForLevel(level);
     levelsGained.push(level);
     allRewards.push(...levelRewards(level));
   }

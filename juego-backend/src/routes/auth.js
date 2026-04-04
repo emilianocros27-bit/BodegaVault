@@ -28,7 +28,7 @@ router.post('/register',
         await client.query(
           `INSERT INTO user_stats (user_id, money, level, xp, xp_next)
            VALUES ($1, 500, 1, 0, $2)`,
-          [u.id, xpForLevel(2)]
+          [u.id, xpForLevel(1)]
         );
         // Notificación de bienvenida
         await client.query(
