@@ -27,7 +27,7 @@ async function processLevelRewards(client, userId, levelsGained, prevLevel) {
         await client.query(`UPDATE user_stats SET bodega_vouchers=bodega_vouchers+1 WHERE user_id=$1`, [userId]);
       }
       if (reward.type === 'item') {
-        const cat = EXCLUSIVE_ITEMS.find(e => e.id === reward.catalogId);
+        const cat = EXCLUSIVE_ITEMS[reward.catalogId];
         if (cat) {
           await client.query(
             `INSERT INTO items (user_id,catalog_id,rarity,condition,grade,identified,value,is_exclusive)
