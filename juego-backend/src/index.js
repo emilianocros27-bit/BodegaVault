@@ -10,6 +10,7 @@ const rateLimit   = require('express-rate-limit');
 const app = express();
 
 // ── Seguridad y parsing ───────────────────────────────────
+app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
