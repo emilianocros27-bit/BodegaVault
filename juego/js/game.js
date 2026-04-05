@@ -1073,7 +1073,7 @@ function renderScreen() {
       el.innerHTML = '<div class="page-title">🌐 Intercambios</div><div class="page-subtitle">Cargando...</div>';
       renderIntercambiosAsync();
       break;
-    case 'coleccion':  el.innerHTML = renderColeccion(); break;
+    case 'coleccion':  el.innerHTML = renderColeccion(); renderTitlesSection(); break;
     case 'cartas':     el.innerHTML = ''; renderBlackjack(); break;
     case 'poker':      el.innerHTML = ''; renderPoker();     break;
     case 'perfil':
@@ -2140,7 +2140,6 @@ function renderColeccion() {
     <div class="section-title">🎖️ Títulos</div>
     <div id="titles-section"><div style="color:var(--text2);font-size:0.85rem">Cargando títulos...</div></div>
   `;
-  setTimeout(() => renderTitlesSection(), 50);
 }
 
 async function renderTitlesSection() {
