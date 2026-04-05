@@ -2148,8 +2148,11 @@ async function renderTitlesSection() {
   const el = document.getElementById('titles-section');
   if (!el) return;
   try {
-    const { titles, equipped } = await API.getMyTitles();
-    if (!titles || titles.length === 0) {
+    const data = await API.getMyTitles();
+    console.log('titles data:', data);
+    const titles = data?.titles || [];
+    const equipped = data?.equipped || null;
+    if (titles.length === 0) {
       el.innerHTML = `<p style="color:var(--text2);font-size:0.85rem">Completa logros especiales para desbloquear títulos.</p>`;
       return;
     }
@@ -2175,7 +2178,8 @@ async function renderTitlesSection() {
         }).join('')}
       </div>`;
   } catch (err) {
-    el.innerHTML = `<p style="color:var(--error);font-size:0.85rem">Error al cargar títulos.</p>`;
+    console.error('renderTitlesSection error:', err);
+    el.innerHTML = `<p style="color:var(--error);font-size:0.85rem">Error: ${err.message || 'No se pudieron cargar los títulos.'}</p>`;
   }
 }
 
