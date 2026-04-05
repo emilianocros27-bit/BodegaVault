@@ -261,4 +261,17 @@ module.exports = [
   { id:'nucleo_reactor',  name:'Núcleo de Reactor Miniatura', category:'rarities',  rarity:'exotic',    baseValue:120000, exclusive:true, abismo:true },
   { id:'muestra_bio',     name:'Muestra Biológica Clasificada', category:'rarities', rarity:'exotic',   baseValue:150000, exclusive:true, abismo:true },
   { id:'ojo_dios',        name:'Ojo de Dios (Telescopio)',   category:'machines',    rarity:'exotic',    baseValue:200000, exclusive:true, abismo:true },
+  // ── RECOMPENSAS DE CATÁLOGO COMPLETO ───────────────────
+  { id:'cat_reward_videogames',    name:'Skin Galaxy Fortnite',          category:'videogames',    rarity:'unique', baseValue:85000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_electronics',   name:'iPad Gold History Edition',     category:'electronics',   rarity:'unique', baseValue:90000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_machines',      name:'Guitarra de Jimi Hendrix',      category:'machines',      rarity:'unique', baseValue:95000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_rarities',      name:'Anillo de Campeonato NBA',      category:'rarities',      rarity:'unique', baseValue:88000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_art',           name:'Cuadro El Grito',               category:'art',           rarity:'unique', baseValue:92000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_music',         name:'Álbum de Michael Jackson',      category:'music',         rarity:'unique', baseValue:87000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_toys',          name:'Figura de Acción Boba Fett',    category:'toys',          rarity:'unique', baseValue:86000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_sports',        name:'Jersey Firmado R. Nazario',     category:'sports',        rarity:'unique', baseValue:93000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_entertainment', name:'Toyota Supra MK4 FF',           category:'entertainment', rarity:'unique', baseValue:91000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_mystery',       name:'Robot Tesla',                   category:'mystery',       rarity:'unique', baseValue:89000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_everyday',      name:'Espátula de Bob',               category:'everyday',      rarity:'unique', baseValue:84000,  exclusive:true, category_reward:true },
+  { id:'cat_reward_valuables',     name:'Cómic Superman n.°1 (1939)',    category:'valuables',     rarity:'unique', baseValue:95000,  exclusive:true, category_reward:true },
 ];

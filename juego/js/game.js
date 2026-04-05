@@ -294,10 +294,33 @@ async function openBodega(bodegaId) {
     });
     S.stats.bodegas++;
     applyLevelUpResult(res);
+
+    // Procesar recompensas de catálogo completado
+    const catRewards = res.categoryRewards || [];
+    catRewards.forEach(cr => {
+      const rewardItem = {
+        uid:        'cat_' + cr.item.id + '_' + Date.now(),
+        catalogId:  cr.item.id,
+        rarity:     cr.item.rarity,
+        condition:  'new',
+        grade:      10,
+        identified: true,
+        forSale:    false,
+        value:      cr.item.baseValue,
+      };
+      S.inventory.push(rewardItem);
+      S.collection[cr.item.id] = true;
+    });
+
     renderHUD();
 
     hideLoading();
     showBodegaAnimation(bodega, items, res.xp_gained ?? 0);
+
+    // Mostrar popup de catálogo completado (con delay para que no se solape)
+    if (catRewards.length > 0) {
+      setTimeout(() => showCategoryRewardModal(catRewards), items.length * 450 + 1200);
+    }
   } catch (err) {
     hideLoading();
     toast(err.message || 'Error al abrir la bodega', 'error');
@@ -345,6 +368,36 @@ function showBodegaAnimation(bodega, items, xpGained = 0) {
 function closeBodegaAnim() {
   document.getElementById('bodega-anim').classList.add('hidden');
   renderScreen();
+}
+
+function showCategoryRewardModal(catRewards) {
+  const CATEGORY_NAMES = {
+    videogames:'Videojuegos', electronics:'Electrónica', machines:'Máquinas',
+    rarities:'Rarezas', art:'Arte', music:'Música', toys:'Juguetes',
+    sports:'Deportes', entertainment:'Entretenimiento', mystery:'Misterio',
+    everyday:'Cotidiano', valuables:'Valiosos',
+  };
+  const rewardCards = catRewards.map(cr => {
+    const catEntry = CATALOG.find(c => c.id === cr.item.id);
+    const emoji = catEntry ? catEntry.emoji : '🏆';
+    return `
+      <div style="background:rgba(233,30,99,0.12);border:2px solid #e91e63;border-radius:12px;padding:16px 20px;margin:10px 0;text-align:center">
+        <div style="font-size:2.5rem">${emoji}</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#e91e63;margin:6px 0">${cr.item.name}</div>
+        <div style="font-size:0.8rem;color:#aaa">Catálogo completado: ${CATEGORY_NAMES[cr.category] || cr.category}</div>
+        <div style="font-size:0.85rem;color:#e91e63;margin-top:4px">💰 Valor: ${fmt(cr.item.baseValue)}</div>
+      </div>`;
+  }).join('');
+
+  showModal(`
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:3rem">🏆</div>
+      <h2 style="color:#e91e63;margin:8px 0">¡Catálogo Completado!</h2>
+      <p style="color:#ccc;margin-bottom:16px">Completaste ${catRewards.length > 1 ? `${catRewards.length} catálogos` : 'un catálogo'} y recibiste un objeto exclusivo único.</p>
+      ${rewardCards}
+      <button class="btn-primary" style="margin-top:16px" onclick="hideModal()">¡Increíble!</button>
+    </div>
+  `);
 }
 
 // ─── EVALUACIÓN ───────────────────────────────────────────
@@ -1744,15 +1797,24 @@ function renderColeccion() {
   const found = Object.keys(S.collection).length;
   const pct   = Math.round(found / total * 100);
 
+  // Para el conteo de requeridos, excluir los propios category_reward y abismo
+  const REQUIRED_CATALOG = CATALOG.filter(c => !c.category_reward && !c.abismo);
+  const CAT_REWARD_IDS = {};
+  CATALOG.filter(c => c.category_reward).forEach(c => { CAT_REWARD_IDS[c.category] = c.id; });
+
   const byCategory = {};
   Object.keys(CATEGORIES).forEach(k => {
-    const catItems = CATALOG.filter(c => c.category === k);
-    byCategory[k]  = { total: catItems.length, found: catItems.filter(c => S.collection[c.id]).length };
+    const catItems  = REQUIRED_CATALOG.filter(c => c.category === k);
+    const foundCnt  = catItems.filter(c => S.collection[c.id]).length;
+    const rewardId  = CAT_REWARD_IDS[k];
+    const completed = foundCnt === catItems.length && catItems.length > 0;
+    const rewardOwned = rewardId && !!S.collection[rewardId];
+    byCategory[k]  = { total: catItems.length, found: foundCnt, completed, rewardOwned, rewardId };
   });
 
   return `
     <div class="page-title">📊 Colección</div>
-    <div class="page-subtitle">Completa el catálogo descubriendo objetos de todas las categorías.</div>
+    <div class="page-subtitle">Completa cada categoría para desbloquear un objeto exclusivo único.</div>
     <div class="collection-progress">
       <h3>Progreso Total</h3>
       <div class="big-progress">
@@ -1765,11 +1827,18 @@ function renderColeccion() {
       ${Object.entries(byCategory).map(([k,v]) => {
         const cat = CATEGORIES[k];
         const p   = Math.round(v.found / v.total * 100);
-        return `<div class="cat-card">
-          <span class="cat-icon">${cat.icon}</span>
+        const rewardCat = v.rewardId ? CATALOG.find(c => c.id === v.rewardId) : null;
+        const completedBadge = v.rewardOwned
+          ? `<div style="font-size:0.7rem;color:#e91e63;font-weight:700;margin-top:4px">🏆 ${rewardCat ? rewardCat.name : 'Recompensa obtenida'}</div>`
+          : v.completed
+          ? `<div style="font-size:0.7rem;color:#ff9800;font-weight:700;margin-top:4px">✅ ¡Completo! Abre otra bodega para reclamar</div>`
+          : '';
+        return `<div class="cat-card" style="${v.rewardOwned ? 'border-color:#e91e63;box-shadow:0 0 8px rgba(233,30,99,0.3)' : ''}">
+          <span class="cat-icon">${cat.icon}${v.rewardOwned ? '🏆' : ''}</span>
           <div class="cat-name">${cat.name}</div>
           <div class="cat-prog-bar"><div class="cat-prog-fill" style="width:${p}%;background:${cat.color}"></div></div>
           <div class="cat-count">${v.found} / ${v.total} (${p}%)</div>
+          ${completedBadge}
         </div>`;
       }).join('')}
     </div>

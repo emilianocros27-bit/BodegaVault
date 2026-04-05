@@ -7,6 +7,7 @@ const { openBodega }  = require('../services/gacha');
 const { generateOffersForItem } = require('../services/npc');
 const { applyXP, XP_REWARDS, levelRewards } = require('../services/xp');
 const { checkAchievements } = require('../services/achievements');
+const { checkCategoryCompletions } = require('../services/categoryRewards');
 const { leaderboardUpdate } = require('../config/redis');
 const BODEGAS = require('../data/bodegas');
 const EXCLUSIVE_ITEMS = require('../data/exclusiveItems');
@@ -95,6 +96,7 @@ router.post('/open',
 
         // Insertar items en BD
         const insertedItems = [];
+        const newCatalogIds = [];
         for (const item of items) {
           const { rows: [inserted] } = await client.query(
             `INSERT INTO items (user_id, catalog_id, rarity, condition, grade, identified, value)
@@ -105,10 +107,11 @@ router.post('/open',
 
           // Registrar en colección si está identificado
           if (item.identified) {
-            await client.query(
+            const { rowCount } = await client.query(
               `INSERT INTO collection (user_id, catalog_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
               [userId, item.catalog_id]
             );
+            if (rowCount > 0) newCatalogIds.push(item.catalog_id);
           }
         }
 
@@ -160,23 +163,29 @@ router.post('/open',
         }
 
         await checkAchievements(client, userId);
-        return { items: insertedItems, xpResult, levelRewardsResult, bodegaCost: bodega.cost, gainedXP };
+
+        // Verificar si el usuario completó algún catálogo
+        const categoryRewards = await checkCategoryCompletions(client, userId, newCatalogIds);
+
+        return { items: insertedItems, xpResult, levelRewardsResult, bodegaCost: bodega.cost, gainedXP, categoryRewards };
       });
 
       await leaderboardUpdate(userId, result.xpResult.level);
 
       res.json({
-        items:        result.items,
-        levels_up:    result.xpResult.levelsGained,
-        new_level:    result.xpResult.level,
-        new_xp:       result.xpResult.xp,
-        new_xp_next:  result.xpResult.xpNext,
-        xp_gained:    result.gainedXP,
-        money_spent:  result.bodegaCost,
-        levelRewards: result.levelRewardsResult.rewards,
+        items:           result.items,
+        levels_up:       result.xpResult.levelsGained,
+        new_level:       result.xpResult.level,
+        new_xp:          result.xpResult.xp,
+        new_xp_next:     result.xpResult.xpNext,
+        xp_gained:       result.gainedXP,
+        money_spent:     result.bodegaCost,
+        levelRewards:    result.levelRewardsResult.rewards,
+        categoryRewards: result.categoryRewards,
       });
     } catch (err) {
       if (err.status === 402) return res.status(402).json({ error: 'No tienes suficiente dinero' });
+      if (err.status === 403) return res.status(403).json({ error: err.message });
       console.error('open bodega error:', err);
       res.status(500).json({ error: 'Error al abrir la bodega' });
     }
