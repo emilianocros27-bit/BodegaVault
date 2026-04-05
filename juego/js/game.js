@@ -1073,10 +1073,7 @@ function renderScreen() {
       el.innerHTML = '<div class="page-title">🌐 Intercambios</div><div class="page-subtitle">Cargando...</div>';
       renderIntercambiosAsync();
       break;
-    case 'coleccion':
-      el.innerHTML = '<div class="page-title">📦 Colección</div><div class="page-subtitle">Cargando...</div>';
-      renderColeccion();
-      break;
+    case 'coleccion':  el.innerHTML = renderColeccion(); break;
     case 'cartas':     el.innerHTML = ''; renderBlackjack(); break;
     case 'poker':      el.innerHTML = ''; renderPoker();     break;
     case 'perfil':
@@ -2043,7 +2040,7 @@ async function doCreateAuction() {
 }
 
 // ─── PANTALLA COLECCIÓN ───────────────────────────────────
-async function renderColeccion() {
+function renderColeccion() {
   const total = CATALOG.length;
   const found = Object.keys(S.collection).length;
   const pct   = Math.round(found / total * 100);
@@ -2063,8 +2060,7 @@ async function renderColeccion() {
     byCategory[k]  = { total: catItems.length, found: foundCnt, completed, rewardOwned, rewardId };
   });
 
-  const el = document.getElementById('game-container');
-  el.innerHTML = `
+  return `
     <div class="page-title">📊 Colección</div>
     <div class="page-subtitle">Completa cada categoría para desbloquear un objeto exclusivo único.</div>
     <div class="collection-progress">
@@ -2144,7 +2140,7 @@ async function renderColeccion() {
     <div class="section-title">🎖️ Títulos</div>
     <div id="titles-section"><div style="color:var(--text2);font-size:0.85rem">Cargando títulos...</div></div>
   `;
-  await renderTitlesSection();
+  setTimeout(() => renderTitlesSection(), 50);
 }
 
 async function renderTitlesSection() {
