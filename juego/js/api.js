@@ -67,16 +67,6 @@ function normalizeOffer(offer) {
   };
 }
 
-function normalizeTrade(trade) {
-  return {
-    id:          trade.id,
-    npcId:       trade.npc_id,
-    want:        trade.want_items,   // array de UUIDs
-    giveItemId:  trade.give_catalog,
-    giveRarity:  trade.give_rarity,
-    phrase:      trade.phrase,
-  };
-}
 
 function normalizeStats(user) {
   return {
@@ -140,17 +130,14 @@ const API = {
     apiFetch(`/market/offers/${offerId}/reject`, { method:'POST' }),
 
   // Trades
-  getTrades: () =>
-    apiFetch('/trades').then(trades => trades.map(normalizeTrade)),
-
-  generateTrade: () =>
-    apiFetch('/trades/generate', { method:'POST' }),
-
-  acceptTrade: (id) =>
-    apiFetch(`/trades/${id}/accept`, { method:'POST' }),
-
-  rejectTrade: (id) =>
-    apiFetch(`/trades/${id}/reject`, { method:'POST' }),
+  getTrades:         ()           => apiFetch('/trades'),
+  getMyTrades:       ()           => apiFetch('/trades/mine'),
+  getProposals:      ()           => apiFetch('/trades/proposals'),
+  createTrade:       (data)       => apiFetch('/trades', { method:'POST', body: JSON.stringify(data) }),
+  proposeTrade:      (id, items)  => apiFetch(`/trades/${id}/propose`, { method:'POST', body: JSON.stringify({ respond_items: items }) }),
+  acceptTrade:       (id)         => apiFetch(`/trades/${id}/accept`, { method:'POST' }),
+  rejectTrade:       (id)         => apiFetch(`/trades/${id}/reject`, { method:'POST' }),
+  cancelTrade:       (id)         => apiFetch(`/trades/${id}/cancel`, { method:'POST' }),
 
   // Player
   claimDaily: () => apiFetch('/player/daily', { method:'POST' }),

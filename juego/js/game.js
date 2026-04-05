@@ -6,7 +6,7 @@
 let S = {
   userId: null, username: null, avatar: '🧑',
   money: 0, level: 1, xp: 0, xpNext: 118,
-  inventory: [], collection: {}, npcTrades: [], pendingOffers: [],
+  inventory: [], collection: {}, playerTrades: [], myTrades: [], proposals: [], pendingOffers: [],
   notifications: [], unlockedAch: [], dailyLast: null,
   screen: 'hub',
   // Nuevos campos
@@ -30,11 +30,10 @@ let auctionCountdownInterval = null;
 async function loadGameState() {
   showLoading('Cargando tu partida...');
   try {
-    const [user, items, collection, trades, offers, notifs, achievements, showcase, friends, friendReqs, pendingGifts, revData] = await Promise.all([
+    const [user, items, collection, offers, notifs, achievements, showcase, friends, friendReqs, pendingGifts, revData] = await Promise.all([
       API.me(),
       API.getItems({ limit: 1000 }),
       API.getCollection(),
-      API.getTrades(),
       API.getOffers(),
       API.getNotifications(),
       API.getAchievements(),
@@ -74,7 +73,6 @@ async function loadGameState() {
     S.inventory      = items;
     S.collection     = {};
     collection.forEach(c => { S.collection[c.catalog_id] = true; });
-    S.npcTrades      = trades;
     S.pendingOffers  = offers;
     S.notifications  = notifs;
     S.unlockedAch    = achievements.unlocked || [];
@@ -564,78 +562,6 @@ async function rejectOffer(offerId) {
   }
 }
 
-// ─── TRATOS NPC ───────────────────────────────────────────
-async function generateNPCTrades() {
-  if (S.npcTrades.length >= 3) return;
-  if (S.inventory.filter(i => i.identified).length < 2) return;
-  try {
-    const res = await API.generateTrade();
-    if (res.generated && res.trade) {
-      S.npcTrades.push({
-        id:         res.trade.id,
-        npcId:      res.trade.npc_id,
-        want:       res.trade.want_items,
-        giveItemId: res.trade.give_catalog,
-        giveRarity: res.trade.give_rarity,
-        phrase:     res.trade.phrase,
-      });
-    }
-  } catch { /* silencioso */ }
-}
-
-async function acceptTrade(tradeId) {
-  if (_pendingActions.has('trade_' + tradeId)) return;
-  _pendingActions.add('trade_' + tradeId);
-  showLoading('Completando trato...');
-  try {
-    const res   = await API.acceptTrade(tradeId);
-    const trade = S.npcTrades.find(t => t.id === tradeId);
-
-    if (trade) {
-      // Quitar items entregados
-      trade.want.forEach(uid => { S.inventory = S.inventory.filter(i => i.uid !== uid); });
-      // Añadir item recibido
-      const newItem = res.newItem;
-      S.inventory.push({
-        uid:        newItem.id,
-        catalogId:  newItem.catalog_id,
-        rarity:     newItem.rarity,
-        condition:  newItem.condition,
-        grade:      newItem.grade,
-        identified: true,
-        forSale:    false,
-        value:      newItem.value,
-      });
-      S.collection[newItem.catalog_id] = true;
-    }
-    S.npcTrades = S.npcTrades.filter(t => t.id !== tradeId);
-    S.stats.trades++;
-    applyLevelUpResult(res);
-    renderHUD();
-    const npc = NPCS.find(n => n.id === trade?.npcId);
-    toast(`🤝 Intercambio completado con ${npc?.name || 'NPC'}`, 'success');
-    renderScreen();
-  } catch (err) {
-    toast(err.message || 'Error al aceptar trato', 'error');
-  } finally {
-    hideLoading();
-    _pendingActions.delete('trade_' + tradeId);
-  }
-}
-
-async function rejectTrade(tradeId) {
-  if (_pendingActions.has('trade_' + tradeId)) return;
-  _pendingActions.add('trade_' + tradeId);
-  try {
-    await API.rejectTrade(tradeId);
-    S.npcTrades = S.npcTrades.filter(t => t.id !== tradeId);
-    renderScreen();
-  } catch (err) {
-    toast(err.message || 'Error', 'error');
-  } finally {
-    _pendingActions.delete('trade_' + tradeId);
-  }
-}
 
 // ─── RECOMPENSA DIARIA ────────────────────────────────────
 function checkDailyReward() {
@@ -764,6 +690,343 @@ function bjSetBet(amount) {
   renderBlackjack();
 }
 
+// ─── INTERCAMBIOS ENTRE JUGADORES ────────────────────────
+
+let _tradeTab = 'mercado'; // 'mercado' | 'mis' | 'propuestas'
+
+async function renderIntercambiosAsync() {
+  try {
+    const [global, mine, proposals] = await Promise.all([
+      API.getTrades(),
+      API.getMyTrades(),
+      API.getProposals(),
+    ]);
+    S.playerTrades = global;
+    S.myTrades     = mine;
+    S.proposals    = proposals;
+    if (S.screen !== 'intercambios') return;
+    document.getElementById('content').innerHTML = renderIntercambios();
+  } catch (err) {
+    document.getElementById('content').innerHTML = `<div class="page-title">🌐 Intercambios</div><p style="color:var(--danger)">Error al cargar intercambios.</p>`;
+  }
+}
+
+function renderIntercambios() {
+  const tabs = [
+    { id:'mercado',    label:'🌐 Mercado',    count: S.playerTrades.length },
+    { id:'mis',        label:'📤 Mis ofertas', count: S.myTrades.length },
+    { id:'propuestas', label:'📥 Propuestas',  count: S.proposals.length },
+  ];
+
+  const tabHtml = `
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      ${tabs.map(t => `
+        <button onclick="_tradeTab='${t.id}';document.getElementById('content').innerHTML=renderIntercambios()"
+          style="flex:1;padding:10px 6px;border-radius:10px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;
+                 background:${_tradeTab===t.id?'var(--accent)':'rgba(255,255,255,0.07)'};
+                 color:${_tradeTab===t.id?'#fff':'var(--text2)'}">
+          ${t.label}${t.count>0?` <span style="background:rgba(255,255,255,0.2);border-radius:10px;padding:1px 7px;font-size:0.75rem">${t.count}</span>`:''}
+        </button>`).join('')}
+    </div>`;
+
+  if (_tradeTab === 'mercado') return `
+    <div class="page-title">🌐 Intercambios</div>
+    <div class="page-subtitle">Intercambia objetos directamente con otros jugadores.</div>
+    ${tabHtml}
+    <button class="btn-gold" style="width:100%;margin-bottom:16px;padding:12px" onclick="showCreateTradeModal()">
+      ➕ Crear nueva oferta
+    </button>
+    ${S.playerTrades.length === 0
+      ? `<div style="text-align:center;padding:40px 20px;color:var(--text2)">
+           <div style="font-size:3rem;margin-bottom:12px">🤝</div>
+           <div>No hay intercambios activos ahora mismo.<br>¡Crea el primero!</div>
+         </div>`
+      : S.playerTrades.map(t => tradeCard(t, 'mercado')).join('')
+    }`;
+
+  if (_tradeTab === 'mis') return `
+    <div class="page-title">🌐 Intercambios</div>
+    <div class="page-subtitle">Intercambia objetos directamente con otros jugadores.</div>
+    ${tabHtml}
+    <button class="btn-gold" style="width:100%;margin-bottom:16px;padding:12px" onclick="showCreateTradeModal()">
+      ➕ Crear nueva oferta
+    </button>
+    ${S.myTrades.length === 0
+      ? `<div style="text-align:center;padding:40px 20px;color:var(--text2)">
+           <div style="font-size:3rem;margin-bottom:12px">📤</div>
+           <div>No tienes intercambios activos.<br>Crea uno desde el Mercado.</div>
+         </div>`
+      : S.myTrades.map(t => tradeCard(t, 'mis')).join('')
+    }`;
+
+  if (_tradeTab === 'propuestas') return `
+    <div class="page-title">🌐 Intercambios</div>
+    <div class="page-subtitle">Intercambia objetos directamente con otros jugadores.</div>
+    ${tabHtml}
+    ${S.proposals.length === 0
+      ? `<div style="text-align:center;padding:40px 20px;color:var(--text2)">
+           <div style="font-size:3rem;margin-bottom:12px">📥</div>
+           <div>Nadie ha propuesto intercambio aún.<br>Crea una oferta para recibir propuestas.</div>
+         </div>`
+      : S.proposals.map(t => tradeCard(t, 'propuestas')).join('')
+    }`;
+
+  return '';
+}
+
+function tradeCard(trade, mode) {
+  const offerItems  = (trade.offer_item_details || []).map(i => {
+    const cat = CATALOG.find(c => c.id === i.catalog_id);
+    const r   = RARITIES[i.rarity] || RARITIES.common;
+    return `<div style="display:inline-flex;align-items:center;gap:4px;background:${r.bg};
+             border:1px solid ${r.color};border-radius:8px;padding:4px 8px;font-size:0.78rem;margin:2px">
+      <span>${cat ? cat.emoji : '📦'}</span>
+      <span style="color:${r.color};font-weight:600">${cat ? cat.name : i.catalog_id}</span>
+    </div>`;
+  }).join('');
+
+  const respondItems = (trade.respond_item_details || []).map(i => {
+    const cat = CATALOG.find(c => c.id === i.catalog_id);
+    const r   = RARITIES[i.rarity] || RARITIES.common;
+    return `<div style="display:inline-flex;align-items:center;gap:4px;background:${r.bg};
+             border:1px solid ${r.color};border-radius:8px;padding:4px 8px;font-size:0.78rem;margin:2px">
+      <span>${cat ? cat.emoji : '📦'}</span>
+      <span style="color:${r.color};font-weight:600">${cat ? cat.name : i.catalog_id}</span>
+    </div>`;
+  }).join('');
+
+  const wantText = trade.want_catalog
+    ? (() => { const c = CATALOG.find(x => x.id === trade.want_catalog); return c ? `${c.emoji} ${c.name}` : trade.want_catalog; })()
+    : trade.want_rarity
+    ? `Cualquier objeto ${RARITIES[trade.want_rarity]?.name || trade.want_rarity}`
+    : trade.want_note || 'Cualquier cosa interesante';
+
+  const expiresIn = Math.max(0, Math.round((new Date(trade.expires_at) - Date.now()) / 3600000));
+
+  let actions = '';
+  if (mode === 'mercado') {
+    actions = trade.respondent_id
+      ? `<div style="font-size:0.78rem;color:#ff9800;padding:8px;text-align:center">⏳ Propuesta pendiente de respuesta</div>`
+      : `<button class="btn-gold" style="width:100%;padding:10px;margin-top:8px"
+           onclick="showProposeTradeModal('${trade.id}')">🤝 Proponer intercambio</button>`;
+  } else if (mode === 'mis') {
+    actions = `<button class="btn-outline" style="width:100%;padding:8px;margin-top:8px;font-size:0.82rem"
+        onclick="cancelTrade('${trade.id}')">❌ Cancelar oferta</button>`;
+  } else if (mode === 'propuestas') {
+    actions = trade.respondent_id ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:6px">
+          Propuesta de <strong style="color:var(--text1)">${trade.respondent_name || 'jugador'}</strong>:
+        </div>
+        <div style="margin-bottom:8px">${respondItems || '<span style="color:var(--text2);font-size:0.8rem">Sin detalles</span>'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn-gold" style="padding:10px;font-size:0.85rem" onclick="acceptTrade('${trade.id}')">✅ Aceptar</button>
+          <button class="btn-outline" style="padding:10px;font-size:0.85rem" onclick="rejectTrade('${trade.id}')">❌ Rechazar</button>
+        </div>
+      </div>` : '';
+  }
+
+  return `
+    <div style="background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px;
+         border:1px solid rgba(255,255,255,0.07)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700;font-size:0.9rem">
+          ${mode === 'mercado' ? `👤 ${trade.creator_name}` : mode === 'mis' ? '📤 Tu oferta' : '📥 Propuesta recibida'}
+        </div>
+        <div style="font-size:0.72rem;color:var(--text2)">⏱ ${expiresIn}h restantes</div>
+      </div>
+      <div style="font-size:0.78rem;color:var(--text2);margin-bottom:4px">Ofrece:</div>
+      <div style="margin-bottom:10px">${offerItems}</div>
+      <div style="font-size:0.78rem;color:var(--text2);margin-bottom:4px">Quiere:</div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:8px;font-size:0.82rem;color:var(--text1)">
+        🎯 ${wantText}
+      </div>
+      ${actions}
+    </div>`;
+}
+
+function showCreateTradeModal() {
+  const eligible = S.inventory.filter(i => {
+    const cat = CATALOG.find(c => c.id === i.catalogId);
+    return i.identified && !i.forSale && !i.inAuction && !(cat && (cat.category_reward || cat.exclusive));
+  });
+  const rarities = ['common','rare','epic','legendary','unique','exotic'];
+
+  showModal(`
+    <h2 style="color:var(--gold);margin:0 0 16px">➕ Nueva oferta de intercambio</h2>
+    <div style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">
+      Selecciona qué ofreces (1-3 objetos) y qué quieres a cambio.
+    </div>
+
+    <div style="font-weight:600;margin-bottom:8px">Objetos que ofreces:</div>
+    <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      ${eligible.length === 0
+        ? `<div style="color:var(--text2);font-size:0.82rem;padding:10px">No tienes objetos identificados disponibles.</div>`
+        : eligible.map(item => {
+            const cat = CATALOG.find(c => c.id === item.catalogId);
+            const r   = RARITIES[item.rarity] || RARITIES.common;
+            return `<label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);
+                    border-radius:8px;padding:8px 10px;cursor:pointer;border:1px solid rgba(255,255,255,0.07)">
+              <input type="checkbox" class="trade-offer-check" value="${item.uid}"
+                style="width:16px;height:16px;accent-color:var(--gold)">
+              <span style="font-size:1.1rem">${cat ? cat.emoji : '📦'}</span>
+              <div style="flex:1">
+                <div style="font-size:0.85rem;font-weight:600">${cat ? cat.name : item.catalogId}</div>
+                <div style="font-size:0.72rem;color:${r.color}">${r.name} · 💰${fmt(item.value)}</div>
+              </div>
+            </label>`;
+          }).join('')}
+    </div>
+
+    <div style="font-weight:600;margin-bottom:8px">¿Qué quieres a cambio?</div>
+    <select id="trade-want-type" onchange="updateTradeWantFields()" style="width:100%;padding:10px;border-radius:8px;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:var(--text1);margin-bottom:10px">
+      <option value="open">Cualquier cosa interesante</option>
+      <option value="rarity">Una rareza específica</option>
+      <option value="note">Descripción libre</option>
+    </select>
+    <div id="trade-want-extra"></div>
+
+    <button class="btn-gold" style="width:100%;padding:12px;margin-top:8px" onclick="submitCreateTrade()">
+      🤝 Publicar oferta
+    </button>
+  `);
+}
+
+function updateTradeWantFields() {
+  const type = document.getElementById('trade-want-type').value;
+  const el   = document.getElementById('trade-want-extra');
+  const rarities = ['common','rare','epic','legendary','unique','exotic'];
+  if (type === 'rarity') {
+    el.innerHTML = `<select id="trade-want-rarity" style="width:100%;padding:10px;border-radius:8px;
+      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:var(--text1);margin-bottom:10px">
+      ${rarities.map(r => `<option value="${r}">${RARITIES[r]?.name || r}</option>`).join('')}
+    </select>`;
+  } else if (type === 'note') {
+    el.innerHTML = `<input id="trade-want-note" type="text" maxlength="100" placeholder="Ej: algo de música o deportes..."
+      style="width:100%;padding:10px;border-radius:8px;background:rgba(255,255,255,0.07);
+             border:1px solid rgba(255,255,255,0.15);color:var(--text1);margin-bottom:10px;box-sizing:border-box">`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+async function submitCreateTrade() {
+  const checked = [...document.querySelectorAll('.trade-offer-check:checked')].map(el => el.value);
+  if (checked.length === 0) { toast('Selecciona al menos 1 objeto', 'error'); return; }
+  if (checked.length > 3)   { toast('Máximo 3 objetos por oferta', 'error'); return; }
+
+  const type    = document.getElementById('trade-want-type').value;
+  const payload = { offer_items: checked };
+  if (type === 'rarity') payload.want_rarity = document.getElementById('trade-want-rarity')?.value;
+  if (type === 'note')   payload.want_note   = document.getElementById('trade-want-note')?.value;
+
+  try {
+    await API.createTrade(payload);
+    hideModal();
+    toast('✅ Oferta publicada', 'success');
+    renderIntercambiosAsync();
+  } catch (err) {
+    toast(err.message || 'Error al crear oferta', 'error');
+  }
+}
+
+function showProposeTradeModal(tradeId) {
+  const trade    = S.playerTrades.find(t => t.id === tradeId);
+  if (!trade) return;
+  const eligible = S.inventory.filter(i => {
+    const cat = CATALOG.find(c => c.id === i.catalogId);
+    return i.identified && !i.forSale && !i.inAuction && !(cat && (cat.category_reward || cat.exclusive));
+  });
+
+  showModal(`
+    <h2 style="color:var(--gold);margin:0 0 8px">🤝 Proponer intercambio</h2>
+    <div style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">
+      Selecciona los objetos que darías a cambio (1-3).
+    </div>
+    <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      ${eligible.length === 0
+        ? `<div style="color:var(--text2);font-size:0.82rem;padding:10px">No tienes objetos disponibles.</div>`
+        : eligible.map(item => {
+            const cat = CATALOG.find(c => c.id === item.catalogId);
+            const r   = RARITIES[item.rarity] || RARITIES.common;
+            return `<label style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);
+                    border-radius:8px;padding:8px 10px;cursor:pointer;border:1px solid rgba(255,255,255,0.07)">
+              <input type="checkbox" class="trade-respond-check" value="${item.uid}"
+                style="width:16px;height:16px;accent-color:var(--gold)">
+              <span style="font-size:1.1rem">${cat ? cat.emoji : '📦'}</span>
+              <div style="flex:1">
+                <div style="font-size:0.85rem;font-weight:600">${cat ? cat.name : item.catalogId}</div>
+                <div style="font-size:0.72rem;color:${r.color}">${r.name} · 💰${fmt(item.value)}</div>
+              </div>
+            </label>`;
+          }).join('')}
+    </div>
+    <button class="btn-gold" style="width:100%;padding:12px" onclick="submitProposeTrade('${tradeId}')">
+      📤 Enviar propuesta
+    </button>
+  `);
+}
+
+async function submitProposeTrade(tradeId) {
+  const checked = [...document.querySelectorAll('.trade-respond-check:checked')].map(el => el.value);
+  if (checked.length === 0) { toast('Selecciona al menos 1 objeto', 'error'); return; }
+  if (checked.length > 3)   { toast('Máximo 3 objetos', 'error'); return; }
+  try {
+    await API.proposeTrade(tradeId, checked);
+    hideModal();
+    toast('📤 Propuesta enviada', 'success');
+    renderIntercambiosAsync();
+  } catch (err) {
+    toast(err.message || 'Error al enviar propuesta', 'error');
+  }
+}
+
+async function acceptTrade(tradeId) {
+  if (_pendingActions.has('trade_' + tradeId)) return;
+  _pendingActions.add('trade_' + tradeId);
+  try {
+    const res = await API.acceptTrade(tradeId);
+    applyLevelUpResult(res);
+    toast('✅ ¡Intercambio completado! Los objetos están en tu inventario.', 'success');
+    await renderIntercambiosAsync();
+    // Recargar inventario
+    S.inventory = await API.getItems({ limit: 1000 });
+  } catch (err) {
+    toast(err.message || 'Error al aceptar', 'error');
+  } finally {
+    _pendingActions.delete('trade_' + tradeId);
+  }
+}
+
+async function rejectTrade(tradeId) {
+  if (_pendingActions.has('trade_' + tradeId)) return;
+  _pendingActions.add('trade_' + tradeId);
+  try {
+    await API.rejectTrade(tradeId);
+    toast('❌ Propuesta rechazada', 'info');
+    renderIntercambiosAsync();
+  } catch (err) {
+    toast(err.message || 'Error al rechazar', 'error');
+  } finally {
+    _pendingActions.delete('trade_' + tradeId);
+  }
+}
+
+async function cancelTrade(tradeId) {
+  if (_pendingActions.has('trade_' + tradeId)) return;
+  _pendingActions.add('trade_' + tradeId);
+  try {
+    await API.cancelTrade(tradeId);
+    toast('🗑 Oferta cancelada', 'info');
+    renderIntercambiosAsync();
+  } catch (err) {
+    toast(err.message || 'Error al cancelar', 'error');
+  } finally {
+    _pendingActions.delete('trade_' + tradeId);
+  }
+}
+
 // ─── NAVEGACIÓN ───────────────────────────────────────────
 function switchScreen(id) {
   // Limpiar countdown de subastas al salir
@@ -791,7 +1054,7 @@ function renderScreen() {
       renderSubastasAsync();
       break;
     case 'intercambios':
-      el.innerHTML = '<div class="page-title">🤝 Intercambios con NPCs</div><div class="page-subtitle">Cargando intercambios...</div>';
+      el.innerHTML = '<div class="page-title">🌐 Intercambios</div><div class="page-subtitle">Cargando...</div>';
       renderIntercambiosAsync();
       break;
     case 'coleccion':  el.innerHTML = renderColeccion();  break;
@@ -1232,61 +1495,6 @@ function renderMercado() {
   `;
 }
 
-// ─── PANTALLA INTERCAMBIOS ────────────────────────────────
-async function renderIntercambiosAsync() {
-  await generateNPCTrades();
-  [S.npcTrades, S.inventory] = await Promise.all([
-    API.getTrades(),
-    API.getItems({ limit: 1000 }),
-  ]);
-  const el = document.getElementById('content');
-  if (S.screen !== 'intercambios') return;
-  el.innerHTML = renderIntercambios();
-}
-
-function renderIntercambios() {
-  return `
-    <div class="page-title">🤝 Intercambios con NPCs</div>
-    <div class="page-subtitle">Los coleccionistas tienen propuestas de intercambio para ti.</div>
-    ${S.npcTrades.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">🤷</div><h3>Sin intercambios disponibles</h3>
-        <p>Los NPCs te contactarán cuando tengan algo interesante. Abre más bodegas para activarlos.</p>
-      </div>` :
-    S.npcTrades.map(trade => {
-      const npc       = NPCS.find(n => n.id === trade.npcId);
-      const wantItems = trade.want.map(uid => S.inventory.find(i => i.uid === uid)).filter(Boolean);
-      const allAvail  = trade.want.length === wantItems.length;
-      const giveCat   = CATALOG.find(c => c.id === trade.giveItemId);
-      const giveR     = RARITIES[trade.giveRarity];
-      return `
-        <div class="trato-card">
-          <div class="trato-header">
-            <span style="font-size:2rem">${npc.avatar}</span>
-            <div class="trato-npc-info"><h3>${npc.name} — ${npc.title}</h3><p>${npc.desc}</p></div>
-          </div>
-          <div class="trato-offer-text">${trade.phrase}</div>
-          <div class="trato-items-want">
-            <strong>Ellos quieren:</strong>
-            ${wantItems.map(item => {
-              const cat = CATALOG.find(c => c.id === item.catalogId);
-              const r   = RARITIES[item.rarity];
-              return `<span style="display:inline-flex;align-items:center;gap:4px;background:${r.bg};color:${r.color};border-radius:6px;padding:3px 8px;margin:3px;font-size:0.78rem">${cat.emoji} ${cat.name}</span>`;
-            }).join('')}
-            ${!allAvail ? '<div style="color:var(--danger);font-size:0.78rem;margin-top:4px">⚠️ Ya no tienes todos los objetos requeridos</div>' : ''}
-          </div>
-          <div style="margin-top:10px">
-            <strong style="font-size:0.8rem">Te ofrecen:</strong>
-            <span style="display:inline-flex;align-items:center;gap:4px;background:${giveR.bg};color:${giveR.color};border-radius:6px;padding:3px 8px;margin:3px;font-size:0.78rem">${giveCat.emoji} ${giveCat.name} (${giveR.name})</span>
-          </div>
-          <div class="trato-actions">
-            <button class="btn-gold" ${!allAvail ? 'disabled' : ''} onclick="acceptTrade('${trade.id}')">✅ Aceptar</button>
-            <button class="btn-outline" onclick="rejectTrade('${trade.id}')">❌ Rechazar</button>
-          </div>
-        </div>`;
-    }).join('')}
-  `;
-}
 
 // ─── PANTALLA PERFIL ──────────────────────────────────────
 async function renderPerfilAsync(userId) {
