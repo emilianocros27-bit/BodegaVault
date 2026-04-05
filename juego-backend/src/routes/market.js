@@ -5,6 +5,8 @@ const { validate }    = require('../middleware/validate');
 const { withTransaction, query } = require('../config/db');
 const { applyXP, XP_REWARDS } = require('../services/xp');
 const { checkAchievements } = require('../services/achievements');
+const CATALOG = require('../data/catalog');
+const CATEGORY_REWARD_IDS = new Set(CATALOG.filter(c => c.category_reward).map(c => c.id));
 
 // ── GET /api/market/offers ─ Todas las ofertas pendientes ─
 router.get('/offers', requireAuth, async (req, res) => {
@@ -34,6 +36,13 @@ router.post('/offers/:id/accept',
           [req.params.id, req.user.id]
         );
         if (!offer) throw Object.assign(new Error('Oferta no encontrada o expirada'), { status:404 });
+
+        // Verificar que el ítem no es una recompensa de catálogo (no se puede vender)
+        const { rows: [itemRow] } = await client.query(
+          `SELECT catalog_id FROM items WHERE id=$1`, [offer.item_id]
+        );
+        if (itemRow && CATEGORY_REWARD_IDS.has(itemRow.catalog_id))
+          throw Object.assign(new Error('Este objeto es una recompensa exclusiva de catálogo y no se puede vender.'), { status:403 });
 
         const { rows: [stats] } = await client.query(
           `SELECT money, level, xp, xp_next, items_sold, total_earned,

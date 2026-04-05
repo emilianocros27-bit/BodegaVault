@@ -3,6 +3,8 @@ const { requireAuth } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/db');
 const { applyXP, XP_REWARDS } = require('../services/xp');
 const { leaderboardUpdate } = require('../config/redis');
+const CATALOG = require('../data/catalog');
+const CATEGORY_REWARD_IDS = new Set(CATALOG.filter(c => c.category_reward).map(c => c.id));
 
 // ── GET /api/auctions ── Lista de subastas activas ────────
 router.get('/', requireAuth, async (req, res) => {
@@ -68,6 +70,7 @@ router.post('/', requireAuth, async (req, res) => {
       const item = items[0];
       if (!item.identified) throw Object.assign(new Error('Debes identificar el objeto primero'), { status:400 });
       if (item.in_auction)  throw Object.assign(new Error('El objeto ya está en una subasta'), { status:409 });
+      if (CATEGORY_REWARD_IDS.has(item.catalog_id)) throw Object.assign(new Error('Los objetos de recompensa de catálogo no se pueden subastar.'), { status:403 });
 
       // Bloquear el item
       await client.query(

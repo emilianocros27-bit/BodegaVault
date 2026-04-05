@@ -1107,6 +1107,7 @@ function showItemDetail(itemUid) {
   const cond     = CONDITIONS[item.condition] || CONDITIONS.good;
   const category = (cat && CATEGORIES[cat.category]) || { icon:'📦', name:'Objeto', color:'#888' };
   const isU      = !item.identified;
+  const isCatReward = cat && !!cat.category_reward;
   const repairCost   = calcRepairCost(item.condition, item.rarity);
   const repairChance = Math.round((REPAIR_SUCCESS[item.condition] || 0) * 100);
   const pips = Array.from({length:10}, (_,i) =>
@@ -1119,6 +1120,7 @@ function showItemDetail(itemUid) {
         <h2>${isU ? 'Objeto No Identificado' : cat.name}</h2>
         <span class="rarity-tag" style="background:${r.bg};color:${r.color}">${r.name}</span>
         <span class="badge" style="background:${category.color}20;color:${category.color};margin-left:6px">${category.icon} ${category.name}</span>
+        ${isCatReward ? `<span class="badge" style="background:rgba(233,30,99,0.15);color:#e91e63;margin-left:6px">🏆 Recompensa de catálogo</span>` : ''}
         <div class="detail-desc">${isU ? 'Requiere evaluación para revelar su identidad y valor.' : cat.desc}</div>
       </div>
     </div>
@@ -1134,6 +1136,12 @@ function showItemDetail(itemUid) {
       ${isU ? `
         <button class="btn-primary" onclick="quickEvaluate('${item.uid}')">🔍 Eval. Rápida (gratis)</button>
         <button class="btn-gold"    onclick="professionalEvaluate('${item.uid}')">🎓 Eval. Profesional (50💰)</button>
+      ` : isCatReward ? `
+        <div style="background:rgba(233,30,99,0.1);border:1px solid rgba(233,30,99,0.3);border-radius:10px;
+             padding:10px 14px;font-size:0.8rem;color:#e91e63;text-align:center">
+          🔒 Este objeto es una recompensa exclusiva de catálogo.<br>
+          <span style="color:#aaa">No se puede vender ni intercambiar.</span>
+        </div>
       ` : `
         ${!item.forSale
           ? `<button class="btn-gold" onclick="putForSale('${item.uid}')">💼 Poner en Venta</button>`
@@ -1670,7 +1678,10 @@ function renderAuctionCard(a) {
 }
 
 function renderCreateAuction() {
-  const eligible = S.inventory.filter(i => i.identified && !i.forSale && !i.inAuction);
+  const eligible = S.inventory.filter(i => {
+    const cat = CATALOG.find(c => c.id === i.catalogId);
+    return i.identified && !i.forSale && !i.inAuction && !(cat && cat.category_reward);
+  });
   return `
     <div class="create-auction-form">
       <h3 style="margin-bottom:12px">➕ Nueva Subasta</h3>

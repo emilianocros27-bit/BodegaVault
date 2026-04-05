@@ -7,6 +7,7 @@ const { generateTradeForUser } = require('../services/npc');
 const { calcItemValue } = require('../services/gacha');
 const { applyXP, XP_REWARDS } = require('../services/xp');
 const CATALOG = require('../data/catalog');
+const CATEGORY_REWARD_IDS = new Set(CATALOG.filter(c => c.category_reward).map(c => c.id));
 
 // ── GET /api/trades ── Listar tratos pendientes ───────────
 router.get('/', requireAuth, async (req, res) => {
@@ -31,11 +32,12 @@ router.post('/generate', requireAuth, async (req, res) => {
       return res.json({ message: 'Ya tienes el máximo de tratos activos', generated: false });
     }
 
-    // Obtener items del usuario
-    const { rows: userItems } = await query(
+    // Obtener items del usuario (excluir recompensas de catálogo — no intercambiables)
+    const { rows: allUserItems } = await query(
       `SELECT * FROM items WHERE user_id=$1 AND identified=TRUE AND for_sale=FALSE`,
       [req.user.id]
     );
+    const userItems = allUserItems.filter(i => !CATEGORY_REWARD_IDS.has(i.catalog_id));
     if (userItems.length < 2) {
       return res.json({ message: 'Necesitas al menos 2 objetos identificados', generated: false });
     }
@@ -73,11 +75,16 @@ router.post('/:id/accept',
         // Verificar que el usuario tiene todos los items
         const wantIds = trade.want_items;
         const { rows: ownedItems } = await client.query(
-          `SELECT id FROM items WHERE id = ANY($1) AND user_id=$2`,
+          `SELECT id, catalog_id FROM items WHERE id = ANY($1) AND user_id=$2`,
           [wantIds, req.user.id]
         );
         if (ownedItems.length !== wantIds.length)
           throw Object.assign(new Error('Ya no tienes todos los objetos requeridos'), { status:400 });
+
+        // Verificar que ningún ítem a entregar es recompensa de catálogo
+        const hasRewardItem = ownedItems.some(i => CATEGORY_REWARD_IDS.has(i.catalog_id));
+        if (hasRewardItem)
+          throw Object.assign(new Error('Los objetos de recompensa de catálogo no se pueden intercambiar.'), { status:403 });
 
         // Eliminar items entregados
         await client.query(
