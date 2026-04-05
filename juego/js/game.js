@@ -2452,18 +2452,31 @@ function renderPoker() {
         <div onclick="pokerToggleCard(${i})" style="
           background:${sel?'#fffde7':'#ffffff'};
           border:3px solid ${sel?'#ffc107':'#ddd'};
-          border-radius:12px;padding:10px 6px 8px;text-align:center;cursor:pointer;
+          border-radius:12px;padding:8px;cursor:pointer;
           transform:${sel?'translateY(-8px) scale(1.04)':'none'};
           transition:all 0.15s ease;
           box-shadow:${sel?'0 8px 20px rgba(255,193,7,0.4)':'0 2px 6px rgba(0,0,0,0.4)'};
           opacity:${dimmed?'0.45':'1'};
-          min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+          min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
           position:relative">
-          <div style="align-self:flex-start;font-size:0.9rem;font-weight:700;color:${c.red?'#e53935':'#1a1a2e'};line-height:1">${c.face}</div>
-          <div style="font-size:2rem;line-height:1;color:${c.red?'#e53935':'#1a1a2e'}">${c.suit}</div>
-          <div style="font-size:0.65rem;font-weight:600;color:${cc>0?'#e65100':'#999'};
-               background:${cc>0?'rgba(230,81,0,0.1)':'rgba(0,0,0,0.05)'};
-               border-radius:4px;padding:2px 6px">${cc} chips</div>
+          <!-- Esquina superior izquierda -->
+          <div style="align-self:flex-start;font-size:0.85rem;font-weight:700;
+               color:${c.red?'#e53935':'#1a1a2e'};line-height:1;text-align:left">
+            ${c.face}<br><span style="font-size:0.75rem">${c.suit}</span>
+          </div>
+          <!-- Palo central -->
+          <div style="font-size:2.4rem;line-height:1;color:${c.red?'#e53935':'#1a1a2e'}">${c.suit}</div>
+          <!-- Esquina inferior derecha (girado) -->
+          <div style="align-self:flex-end;font-size:0.85rem;font-weight:700;
+               color:${c.red?'#e53935':'#1a1a2e'};line-height:1;text-align:right;
+               transform:rotate(180deg)">
+            ${c.face}<br><span style="font-size:0.75rem">${c.suit}</span>
+          </div>
+          <!-- Chips abajo centrado -->
+          <div style="position:absolute;bottom:-1px;left:0;right:0;text-align:center;
+               font-size:0.6rem;font-weight:600;color:${cc>0?'#e65100':'#999'};
+               background:${cc>0?'rgba(230,81,0,0.12)':'rgba(0,0,0,0.06)'};
+               border-radius:0 0 9px 9px;padding:2px 0">${cc} chips</div>
         </div>`;
       }).join('')}
     </div>
