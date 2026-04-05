@@ -2002,11 +2002,10 @@ function buildPokerDeck() {
   const faces = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
   const deck  = [];
   for (const s of suits) for (const f of faces) {
-    const value  = f==='A'?1:['J','Q','K'].includes(f)?11:Number(f)+1; // sort value
-    const numVal = f==='A'?14:['J','Q','K'].includes(f)?10:parseInt(f);
-    deck.push({ suit:s, face:f, value, numVal, red: s==='♥'||s==='♦' });
+    // value: valor numérico real para detectar escaleras (A=14 alto, A=1 bajo se maneja en evaluación)
+    const value = f==='A'?14 : f==='K'?13 : f==='Q'?12 : f==='J'?11 : parseInt(f);
+    deck.push({ suit:s, face:f, value, red: s==='♥'||s==='♦' });
   }
-  // shuffle
   for (let i=deck.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
   return deck;
 }
@@ -2023,31 +2022,43 @@ function evaluatePokerHand(cards) {
   if (n === 0) return { name:'Sin cartas', chips:0, mult:1 };
   if (n === 1) return { name:'Carta Alta', chips:5, mult:1 };
 
-  const faces  = cards.map(c => c.face);
-  const suits  = cards.map(c => c.suit);
-  const vals   = cards.map(c => c.value).sort((a,b)=>a-b);
+  const faces = cards.map(c => c.face);
+  const suits = cards.map(c => c.suit);
+  const vals  = cards.map(c => c.value).sort((a,b) => a-b);
 
   const faceCount = {};
   faces.forEach(f => faceCount[f] = (faceCount[f]||0)+1);
-  const counts = Object.values(faceCount).sort((a,b)=>b-a);
+  const counts = Object.values(faceCount).sort((a,b) => b-a);
 
-  const isFlush    = n === 5 && new Set(suits).size === 1;
+  const isFlush = n === 5 && new Set(suits).size === 1;
+
+  // Escalera normal (5 valores únicos consecutivos)
   const uniqueVals = [...new Set(vals)];
-  const isStraight = n === 5 && uniqueVals.length === 5 &&
-    (vals[4]-vals[0] === 4 || vals.join(',') === '1,10,11,12,13');
+  let isStraight = false;
+  if (n === 5 && uniqueVals.length === 5) {
+    // Escalera alta: 10-J-Q-K-A (10,11,12,13,14)
+    // Escalera baja: A-2-3-4-5 → tratar As como 1
+    const highStraight = vals[4] - vals[0] === 4;
+    const aceLowVals   = vals[0] === 14 ? [1, ...vals.slice(1)].sort((a,b)=>a-b) : null;
+    const lowStraight  = aceLowVals && aceLowVals[4] - aceLowVals[0] === 4;
+    isStraight = highStraight || lowStraight;
+  }
+
+  // Escalera Real: 10-J-Q-K-A del mismo palo
+  const isRoyal = isFlush && isStraight && vals[0] === 10 && vals[4] === 14;
 
   if (isFlush && isStraight) {
-    return vals.join(',') === '1,10,11,12,13'
-      ? { name:'Escalera Real',    chips:200, mult:8 }
+    return isRoyal
+      ? { name:'Escalera Real',     chips:200, mult:8 }
       : { name:'Escalera de Color', chips:200, mult:8 };
   }
-  if (n >= 4 && counts[0] === 4) return { name:'Póker',      chips:120, mult:7 };
-  if (n === 5 && counts[0] === 3 && counts[1] === 2) return { name:'Full House', chips:90, mult:4 };
-  if (isFlush)    return { name:'Color',    chips:80, mult:4 };
-  if (isStraight) return { name:'Escalera', chips:80, mult:4 };
-  if (counts[0] === 3) return { name:'Trío',     chips:50, mult:3 };
-  if (counts[0] === 2 && counts[1] === 2) return { name:'Doble Par', chips:30, mult:2 };
-  if (counts[0] === 2) return { name:'Par',      chips:20, mult:2 };
+  if (n >= 4 && counts[0] === 4)                    return { name:'Póker',      chips:120, mult:7 };
+  if (n === 5 && counts[0] === 3 && counts[1] === 2) return { name:'Full House', chips:90,  mult:4 };
+  if (isFlush)                                       return { name:'Color',      chips:80,  mult:4 };
+  if (isStraight)                                    return { name:'Escalera',   chips:80,  mult:4 };
+  if (counts[0] === 3)                               return { name:'Trío',       chips:50,  mult:3 };
+  if (counts[0] === 2 && counts[1] === 2)            return { name:'Doble Par',  chips:30,  mult:2 };
+  if (counts[0] === 2)                               return { name:'Par',        chips:20,  mult:2 };
   return { name:'Carta Alta', chips:5, mult:1 };
 }
 
