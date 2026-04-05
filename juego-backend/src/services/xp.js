@@ -1,7 +1,7 @@
 // ── Servicio XP / Niveles ────────────────────────────────
 
 function xpForLevel(level) {
-  return Math.floor(100 * Math.pow(1.30, level - 1));
+  return Math.floor(100 * Math.pow(1.30, level - 1)) + 150;
 }
 
 // Mapa de recompensas reales por nivel
