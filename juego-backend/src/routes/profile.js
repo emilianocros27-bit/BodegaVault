@@ -75,7 +75,18 @@ router.get('/me/showcase', requireAuth, async (req, res) => {
 
 // ── GET /api/profile/me/titles ── Mis títulos desbloqueados
 router.get('/me/titles', requireAuth, async (req, res) => {
+  const TITLE_ACHIEVEMENTS = ['collector_all','level_50','millionaire','poker_royal','bodega_50'];
   try {
+    // Auto-grant any titles the user has earned but not yet received
+    await query(
+      `INSERT INTO user_titles (user_id, title_id)
+       SELECT user_id, achievement_id
+       FROM achievements
+       WHERE user_id=$1 AND achievement_id = ANY($2)
+       ON CONFLICT DO NOTHING`,
+      [req.user.id, TITLE_ACHIEVEMENTS]
+    );
+
     const { rows } = await query(
       `SELECT ut.title_id, ut.unlocked_at, us.equipped_title
        FROM user_titles ut
