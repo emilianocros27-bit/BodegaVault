@@ -2390,8 +2390,11 @@ function renderPoker() {
       ${helpBtn}
     </div>
 
+    <div style="background:radial-gradient(ellipse at center,#1a4a2a 0%,#0d2e18 100%);
+         border:3px solid #2a6a3a;border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:12px">
+
     <!-- Blind progress bar -->
-    <div style="background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+    <div style="background:rgba(0,0,0,0.35);border-radius:14px;padding:14px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
           <span style="font-size:1.1rem;font-weight:700">${blind.emoji} ${blind.name}</span>
@@ -2405,45 +2408,45 @@ function renderPoker() {
       </div>
       <div style="display:flex;justify-content:space-around;font-size:0.82rem">
         <div style="text-align:center">
-          <div style="color:var(--text2)">Jugadas</div>
-          <div style="font-size:1.3rem;font-weight:700;color:${pk.playsLeft<=1?'var(--danger)':'var(--text1)'}">${pk.playsLeft}</div>
+          <div style="color:#7fbf7f">Jugadas</div>
+          <div style="font-size:1.3rem;font-weight:700;color:${pk.playsLeft<=1?'#f44336':'#fff'}">${pk.playsLeft}</div>
         </div>
-        <div style="width:1px;background:rgba(255,255,255,0.08)"></div>
+        <div style="width:1px;background:rgba(255,255,255,0.15)"></div>
         <div style="text-align:center">
-          <div style="color:var(--text2)">Descartes</div>
-          <div style="font-size:1.3rem;font-weight:700;color:${pk.discardsLeft===0?'var(--danger)':'var(--text1)'}">${pk.discardsLeft}</div>
+          <div style="color:#7fbf7f">Descartes</div>
+          <div style="font-size:1.3rem;font-weight:700;color:${pk.discardsLeft===0?'#f44336':'#fff'}">${pk.discardsLeft}</div>
         </div>
-        <div style="width:1px;background:rgba(255,255,255,0.08)"></div>
+        <div style="width:1px;background:rgba(255,255,255,0.15)"></div>
         <div style="text-align:center">
-          <div style="color:var(--text2)">Seleccionadas</div>
+          <div style="color:#7fbf7f">Seleccionadas</div>
           <div style="font-size:1.3rem;font-weight:700;color:var(--gold)">${pk.selected.length} / ${maxSel}</div>
         </div>
       </div>
     </div>
 
     <!-- Hand preview -->
-    <div style="min-height:52px;border-radius:12px;padding:10px 16px;margin-bottom:12px;
+    <div style="min-height:52px;border-radius:12px;padding:10px 16px;
          display:flex;align-items:center;justify-content:space-between;
-         background:${preview?'rgba(255,152,0,0.12)':'rgba(255,255,255,0.04)'};
-         border:1px solid ${preview?'rgba(255,152,0,0.4)':'rgba(255,255,255,0.07)'}">
+         background:${preview?'rgba(255,152,0,0.18)':'rgba(0,0,0,0.2)'};
+         border:1px solid ${preview?'rgba(255,152,0,0.5)':'rgba(255,255,255,0.08)'}">
       ${preview ? `
         <div>
-          <div style="font-size:1rem;font-weight:700;color:#ff9800">${preview.name}</div>
-          <div style="font-size:0.75rem;color:var(--text2)">(${preview.chips} + ${previewChips}) × ${preview.mult}</div>
+          <div style="font-size:1rem;font-weight:700;color:#ffb300">${preview.name}</div>
+          <div style="font-size:0.75rem;color:#7fbf7f">(${preview.chips} + ${previewChips}) × ${preview.mult}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:1.3rem;font-weight:700;color:var(--gold)">+${previewScore}</div>
-          <div style="font-size:0.7rem;color:var(--text2)">puntos</div>
+          <div style="font-size:0.7rem;color:#7fbf7f">puntos</div>
         </div>
       ` : `
-        <span style="color:var(--text2);font-size:0.85rem;width:100%;text-align:center">
+        <span style="color:#7fbf7f;font-size:0.85rem;width:100%;text-align:center">
           Toca las cartas que quieras jugar (máx. ${maxSel})
         </span>
       `}
     </div>
 
     <!-- Cards: 4 arriba + 4 abajo -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
       ${pk.hand.map((c,i) => {
         const sel     = pk.selected.includes(i);
         const cc      = cardChips(c, bossEff);
@@ -2496,6 +2499,8 @@ function renderPoker() {
                color:${pk.discardsLeft>0&&pk.selected.length>0?'#2196f3':'#555'}">
         ♻️ Descartar (${pk.discardsLeft})
       </button>
+    </div>
+
     </div>
   `;
 }
