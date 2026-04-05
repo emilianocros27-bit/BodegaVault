@@ -1576,7 +1576,7 @@ async function renderPerfilAsync(userId) {
         <div class="profile-avatar-big" ${isOwn ? 'onclick="showAvatarModal()" title="Cambiar avatar"' : ''}>${profile.avatar || '🧑'}</div>
         <div class="profile-info">
           <h2>${profile.username}</h2>
-          ${profile.equippedTitle && TITLES_MAP[profile.equippedTitle] ? `<div style="color:var(--gold);font-style:italic;font-size:0.85rem;margin-bottom:4px">🎖️ ${TITLES_MAP[profile.equippedTitle]}</div>` : ''}
+          ${profile.equippedTitle && TITLES_MAP[profile.equippedTitle] ? `<div style="color:#ff2222;font-style:italic;font-weight:700;font-size:0.9rem;margin-bottom:4px;text-shadow:0 0 8px #ff0000aa">🎖️ ${TITLES_MAP[profile.equippedTitle]}</div>` : ''}
           <div class="profile-badges">
             <span class="hud-level-badge">Nv. ${profile.level}</span>
             ${isOwn ? `<button class="btn-link" onclick="showAvatarModal()">✏️ Cambiar avatar</button>` : ''}
@@ -2134,6 +2134,7 @@ function renderColeccion() {
           <div class="ach-icon">${a.icon}</div>
           <div class="ach-name">${a.name}</div>
           <div class="ach-desc">${a.desc}</div>
+          ${TITLES_MAP[a.id] ? `<div style="margin-top:5px;font-size:0.7rem;color:#ff2222;font-weight:700;font-style:italic;text-shadow:0 0 5px #ff0000aa">🎖️ "${TITLES_MAP[a.id]}"</div>` : ''}
         </div>`).join('')}
     </div>
     <div class="section-title">🎖️ Títulos</div>
