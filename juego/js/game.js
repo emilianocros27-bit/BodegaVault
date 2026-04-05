@@ -10,7 +10,7 @@ let S = {
   notifications: [], unlockedAch: [], dailyLast: null,
   screen: 'hub',
   // Nuevos campos
-  rouletteLast: null, bodegaVouchers: 0, levelRewardsClaimed: 0,
+  rouletteLast: null, bodegaVouchers: 0, levelRewardsClaimed: 0, dailySales: 0,
   showcase: [],
   friends: [], friendRequests: [],
   auctions: [], myAuctions: [],
@@ -55,6 +55,9 @@ async function loadGameState() {
     S.rouletteLast        = user.roulette_last || null;
     S.bodegaVouchers      = parseInt(user.bodega_vouchers || 0);
     S.levelRewardsClaimed = parseInt(user.level_rewards_claimed || 0);
+    const today = new Date().toISOString().slice(0, 10);
+    const salesDate = user.daily_sales_date ? String(user.daily_sales_date).slice(0, 10) : null;
+    S.dailySales = salesDate === today ? parseInt(user.daily_sales || 0) : 0;
     S.stats = { ...S.stats,
       bodegas:        user.bodegas_opened  || 0,
       sold:           user.items_sold      || 0,
@@ -478,6 +481,7 @@ async function acceptOffer(offerId) {
       S.stats.sold++;
     }
     applyLevelUpResult(res);
+    S.dailySales = Math.min((S.dailySales || 0) + 1, 12);
     renderHUD();
     const npc = NPCS.find(n => n.id === offer?.npcId);
     toast(`✅ Vendido a ${npc?.name || 'comprador'} por ${fmt(offer?.price || 0)} monedas`, 'success');
@@ -1106,6 +1110,11 @@ function renderMercado() {
   return `
     <div class="page-title">💼 Mercado</div>
     <div class="page-subtitle">Gestiona tus ventas y responde a las ofertas de los compradores.</div>
+    <div style="display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;margin-bottom:16px;font-size:0.9rem">
+      <span>🏪 Ventas hoy:</span>
+      <span style="font-weight:700;color:${S.dailySales >= 12 ? '#f44336' : S.dailySales >= 9 ? '#ff9800' : 'var(--gold)'}">${S.dailySales}/12</span>
+      ${S.dailySales >= 12 ? '<span style="color:#f44336;font-size:0.8rem">— Límite alcanzado, vuelve mañana</span>' : ''}
+    </div>
 
     ${forSale.length === 0 ? `
       <div class="empty-state">

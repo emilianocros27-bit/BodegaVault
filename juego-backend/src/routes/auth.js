@@ -110,7 +110,8 @@ router.get('/me', requireAuth, async (req, res) => {
             s.bodegas_opened, s.items_sold, s.items_repaired, s.trades_done,
             s.bj_wins, s.bj_losses, s.bj_best_streak,
             s.total_earned, s.total_spent, s.daily_last,
-            s.roulette_last, s.bodega_vouchers, s.level_rewards_claimed
+            s.roulette_last, s.bodega_vouchers, s.level_rewards_claimed,
+            s.daily_sales, s.daily_sales_date
      FROM users u JOIN user_stats s ON s.user_id = u.id
      WHERE u.id = $1`,
     [req.user.id]
