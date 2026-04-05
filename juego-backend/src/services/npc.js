@@ -3,17 +3,16 @@
 const NPCS = require('../data/npcs');
 const CATALOG = require('../data/catalog');
 
-function npcOfferPrice(npcId, catalogId, condition, grade, rarity, baseValue) {
+function npcOfferPrice(npcId, catalogId, condition, grade, rarity, itemValue) {
   const npc  = NPCS.find(n => n.id === npcId);
   if (!npc) return 0;
 
   const cat  = CATALOG.find(c => c.id === catalogId);
   if (!cat) return 0;
 
-  const COND_MULT = { new:1.5, used:1.0, damaged:0.6, very_damaged:0.3 };
-  const gradeMult = 0.5 + (grade / 10) * 1.0;
-  let price = Math.round(baseValue * (COND_MULT[condition] ?? 1) * gradeMult);
-
+  // Usar item.value directamente (ya incluye condición y grade)
+  // Solo aplicar multiplicadores propios del NPC
+  let price = itemValue;
   price *= (npc.categoryMultipliers[cat.category] ?? 1.0);
   if (npc.gradeBonusThreshold && grade >= npc.gradeBonusThreshold) price *= 1.3;
 

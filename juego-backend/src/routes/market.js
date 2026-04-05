@@ -36,9 +36,17 @@ router.post('/offers/:id/accept',
         if (!offer) throw Object.assign(new Error('Oferta no encontrada o expirada'), { status:404 });
 
         const { rows: [stats] } = await client.query(
-          `SELECT money, level, xp, xp_next, items_sold, total_earned FROM user_stats WHERE user_id=$1 FOR UPDATE`,
+          `SELECT money, level, xp, xp_next, items_sold, total_earned,
+                  daily_sales, daily_sales_date FROM user_stats WHERE user_id=$1 FOR UPDATE`,
           [req.user.id]
         );
+
+        // Verificar límite diario de ventas
+        const today = new Date().toISOString().slice(0, 10);
+        const isNewDay = !stats.daily_sales_date || stats.daily_sales_date.toISOString?.().slice(0,10) !== today
+                        && String(stats.daily_sales_date).slice(0,10) !== today;
+        const salesCount = isNewDay ? 0 : (stats.daily_sales || 0);
+        if (salesCount >= 12) throw Object.assign(new Error('Límite de 12 ventas diarias alcanzado. Vuelve mañana.'), { status: 429 });
 
         // Marcar oferta como aceptada y las demás del mismo item como expiradas
         await client.query(`UPDATE npc_offers SET status='accepted' WHERE id=$1`, [offer.id]);
@@ -54,10 +62,12 @@ router.post('/offers/:id/accept',
         const xpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, XP_REWARDS.sell_item);
         await client.query(
           `UPDATE user_stats SET
-            money       = money + $2,
-            items_sold  = items_sold + 1,
-            total_earned= total_earned + $2,
-            xp=$3, level=$4, xp_next=$5
+            money            = money + $2,
+            items_sold       = items_sold + 1,
+            total_earned     = total_earned + $2,
+            xp=$3, level=$4, xp_next=$5,
+            daily_sales      = CASE WHEN daily_sales_date = CURRENT_DATE THEN daily_sales + 1 ELSE 1 END,
+            daily_sales_date = CURRENT_DATE
            WHERE user_id=$1`,
           [req.user.id, offer.price, xpR.xp, xpR.level, xpR.xpNext]
         );
@@ -73,7 +83,7 @@ router.post('/offers/:id/accept',
 
       res.json({ message: 'Venta completada', ...txResult });
     } catch (err) {
-      if (err.status) return res.status(err.status).json({ error: err.message });
+      if (err.status) return res.status(err.status).json({ error: err.message, remaining: 0 });
       console.error('accept offer error:', err);
       res.status(500).json({ error: 'Error al aceptar la oferta' });
     }
