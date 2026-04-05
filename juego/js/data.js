@@ -363,7 +363,7 @@ const NPCS = [
 
 const BODEGAS = [
   {
-    id:'basica', name:'Bodega Básica', icon:'🏚️', cost:200,
+    id:'basica', name:'Bodega Básica', icon:'🏚️', cost:300,
     desc:'Un almacén sencillo con mercancía variada y polvorosa.',
     itemCount:{ min:2, max:4 },
     rarityW:{ common:72, rare:25, epic:3, legendary:0, unique:0 },
@@ -371,7 +371,7 @@ const BODEGAS = [
     unidChance:0.15, color:'#607d8b',
   },
   {
-    id:'estandar', name:'Bodega Estándar', icon:'🏭', cost:500,
+    id:'estandar', name:'Bodega Estándar', icon:'🏭', cost:800,
     desc:'Contenido variado con mejores probabilidades de hallazgos.',
     itemCount:{ min:3, max:5 },
     rarityW:{ common:58, rare:34, epic:7, legendary:1, unique:0 },
@@ -379,7 +379,7 @@ const BODEGAS = [
     unidChance:0.20, color:'#1976d2',
   },
   {
-    id:'premium', name:'Bodega Premium', icon:'🏬', cost:1200,
+    id:'premium', name:'Bodega Premium', icon:'🏬', cost:2000,
     desc:'Colección seleccionada de alta calidad y excelente conservación.',
     itemCount:{ min:4, max:6 },
     rarityW:{ common:40, rare:38, epic:18, legendary:3, unique:1 },
@@ -387,7 +387,7 @@ const BODEGAS = [
     unidChance:0.30, color:'#7b1fa2',
   },
   {
-    id:'rara', name:'Bodega Rara', icon:'🏴‍☠️', cost:3000,
+    id:'rara', name:'Bodega Rara', icon:'🏴‍☠️', cost:5000,
     desc:'Artículos inusuales de procedencia misteriosa.',
     itemCount:{ min:3, max:5 },
     rarityW:{ common:18, rare:42, epic:30, legendary:8, unique:2 },
@@ -395,7 +395,7 @@ const BODEGAS = [
     unidChance:0.50, color:'#e64a19',
   },
   {
-    id:'misteriosa', name:'Bodega Misteriosa', icon:'🔮', cost:8000,
+    id:'misteriosa', name:'Bodega Misteriosa', icon:'🔮', cost:12000,
     desc:'Nadie sabe qué hay dentro... sólo lo más extraordinario.',
     itemCount:{ min:4, max:7 },
     rarityW:{ common:10, rare:30, epic:38, legendary:17, unique:5 },
