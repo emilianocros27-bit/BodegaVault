@@ -2457,7 +2457,7 @@ function renderPoker() {
           transition:all 0.15s ease;
           box-shadow:${sel?'0 8px 20px rgba(255,193,7,0.4)':'0 2px 6px rgba(0,0,0,0.4)'};
           opacity:${dimmed?'0.45':'1'};
-          min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+          min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
           position:relative">
           <!-- Esquina superior izquierda -->
           <div style="align-self:flex-start;font-size:0.85rem;font-weight:700;
