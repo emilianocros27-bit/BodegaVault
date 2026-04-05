@@ -288,6 +288,60 @@ router.post('/blackjack', requireAuth, async (req, res) => {
   }
 });
 
+// ── POST /api/player/poker ── Resultado de partida ────────
+router.post('/poker', requireAuth, async (req, res) => {
+  const { outcome, bet, blindsWon } = req.body;
+  if (!['win','lose'].includes(outcome))          return res.status(400).json({ error: 'outcome inválido' });
+  if (!Number.isInteger(bet) || bet < 100)        return res.status(400).json({ error: 'apuesta inválida' });
+  if (!Number.isInteger(blindsWon) || blindsWon < 0 || blindsWon > 3)
+    return res.status(400).json({ error: 'blindsWon inválido' });
+
+  const XP_BY_BLINDS = [2, 5, 12, 25];
+
+  try {
+    const result = await withTransaction(async (client) => {
+      const { rows: [stats] } = await client.query(
+        `SELECT money, level, xp, xp_next FROM user_stats WHERE user_id=$1 FOR UPDATE`,
+        [req.user.id]
+      );
+
+      const moneyDelta = outcome === 'win' ? bet * 3 : -bet;
+      const xpGained   = XP_BY_BLINDS[blindsWon] || 2;
+
+      const xpR = applyXP(+stats.level, +stats.xp, +stats.xp_next, xpGained);
+      const levelRewardsResult = await processLevelRewards(client, req.user.id, xpR.levelsGained, stats.level);
+
+      await client.query(
+        `UPDATE user_stats SET
+          money=money+$2+$3, xp=$4, level=$5, xp_next=$6,
+          total_earned = total_earned + GREATEST($2,0),
+          total_spent  = total_spent  + GREATEST(-$2,0),
+          level_rewards_claimed=$7
+         WHERE user_id=$1`,
+        [req.user.id, moneyDelta, levelRewardsResult.coinsGained,
+         xpR.xp, xpR.level, xpR.xpNext,
+         Math.max(stats.level_rewards_claimed || 0, xpR.level)]
+      );
+
+      await client.query(
+        `INSERT INTO transactions (user_id,type,amount,description) VALUES ($1,$2,$3,$4)`,
+        [req.user.id, outcome==='win'?'poker_win':'poker_loss', moneyDelta,
+         `BodegaPoker: ${outcome} (${blindsWon}/3 blinds)`]
+      );
+
+      await leaderboardUpdate(req.user.id, xpR.level);
+      await checkAchievements(client, req.user.id);
+      return { moneyDelta, xpResult: xpR, levelRewards: levelRewardsResult.rewards, xp_gained: xpGained };
+    });
+
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error('poker save error:', err);
+    res.status(500).json({ error: 'Error al guardar partida de póker' });
+  }
+});
+
 // ── HELPER: Procesar recompensas de niveles ganados ───────
 async function processLevelRewards(client, userId, levelsGained, prevLevel) {
   const allRewards   = [];

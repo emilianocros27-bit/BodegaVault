@@ -20,6 +20,7 @@ let S = {
            bj_losses:0, bj_best_streak:0, total_earned:0, total_spent:0,
            found_rare:0, found_epic:0, found_legendary:0, found_unique:0 },
   bj: { deck:[], playerHand:[], dealerHand:[], bet:50, state:'idle', streak:0, result:null },
+  poker: { state:'idle', bet:100, blind:0, deck:[], hand:[], selected:[], playsLeft:4, discardsLeft:3, score:0, bossEffect:null, result:null },
 };
 
 // Intervalo para countdown de subastas
@@ -795,6 +796,7 @@ function renderScreen() {
       break;
     case 'coleccion':  el.innerHTML = renderColeccion();  break;
     case 'cartas':     el.innerHTML = ''; renderBlackjack(); break;
+    case 'poker':      el.innerHTML = ''; renderPoker();     break;
     case 'perfil':
       el.innerHTML = '<div class="page-title">👤 Mi Perfil</div><div class="page-subtitle">Cargando perfil...</div>';
       renderPerfilAsync(S.userId);
@@ -1978,6 +1980,354 @@ function renderBlackjack() {
       <div class="bj-stats-row">
         <span>Mejor racha: ${S.stats.bj_best_streak}</span>
       </div>
+    </div>
+  `;
+}
+
+// ─── PANTALLA POKER (BODEGAPOKER) ────────────────────────
+
+const POKER_BLINDS = [
+  { name:'Small Blind', emoji:'🟡', target:300  },
+  { name:'Big Blind',   emoji:'🟠', target:800  },
+  { name:'Boss Blind',  emoji:'💀', target:2000 },
+];
+const POKER_BOSS_EFFECTS = [
+  { id:'no_figures',  desc:'Las figuras (J, Q, K) valen 0 chips' },
+  { id:'max_2_cards', desc:'Solo puedes jugar máximo 2 cartas' },
+  { id:'one_discard', desc:'Solo tienes 1 descarte total' },
+];
+
+function buildPokerDeck() {
+  const suits = ['♠','♥','♦','♣'];
+  const faces = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const deck  = [];
+  for (const s of suits) for (const f of faces) {
+    const value  = f==='A'?1:['J','Q','K'].includes(f)?11:Number(f)+1; // sort value
+    const numVal = f==='A'?14:['J','Q','K'].includes(f)?10:parseInt(f);
+    deck.push({ suit:s, face:f, value, numVal, red: s==='♥'||s==='♦' });
+  }
+  // shuffle
+  for (let i=deck.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
+  return deck;
+}
+
+function cardChips(card, bossEffect) {
+  if (bossEffect === 'no_figures' && ['J','Q','K'].includes(card.face)) return 0;
+  if (card.face === 'A') return 11;
+  if (['J','Q','K'].includes(card.face)) return 10;
+  return parseInt(card.face);
+}
+
+function evaluatePokerHand(cards) {
+  const n = cards.length;
+  if (n === 0) return { name:'Sin cartas', chips:0, mult:1 };
+  if (n === 1) return { name:'Carta Alta', chips:5, mult:1 };
+
+  const faces  = cards.map(c => c.face);
+  const suits  = cards.map(c => c.suit);
+  const vals   = cards.map(c => c.value).sort((a,b)=>a-b);
+
+  const faceCount = {};
+  faces.forEach(f => faceCount[f] = (faceCount[f]||0)+1);
+  const counts = Object.values(faceCount).sort((a,b)=>b-a);
+
+  const isFlush    = n === 5 && new Set(suits).size === 1;
+  const uniqueVals = [...new Set(vals)];
+  const isStraight = n === 5 && uniqueVals.length === 5 &&
+    (vals[4]-vals[0] === 4 || vals.join(',') === '1,10,11,12,13');
+
+  if (isFlush && isStraight) {
+    return vals.join(',') === '1,10,11,12,13'
+      ? { name:'Escalera Real',    chips:200, mult:8 }
+      : { name:'Escalera de Color', chips:200, mult:8 };
+  }
+  if (n >= 4 && counts[0] === 4) return { name:'Póker',      chips:120, mult:7 };
+  if (n === 5 && counts[0] === 3 && counts[1] === 2) return { name:'Full House', chips:90, mult:4 };
+  if (isFlush)    return { name:'Color',    chips:80, mult:4 };
+  if (isStraight) return { name:'Escalera', chips:80, mult:4 };
+  if (counts[0] === 3) return { name:'Trío',     chips:50, mult:3 };
+  if (counts[0] === 2 && counts[1] === 2) return { name:'Doble Par', chips:30, mult:2 };
+  if (counts[0] === 2) return { name:'Par',      chips:20, mult:2 };
+  return { name:'Carta Alta', chips:5, mult:1 };
+}
+
+function pokerStart() {
+  const pk = S.poker;
+  if (pk.bet > S.money) { toast('💸 No tienes suficiente dinero', 'error'); return; }
+  S.money -= pk.bet;
+  pk.blind      = 0;
+  pk.score      = 0;
+  pk.bossEffect = POKER_BOSS_EFFECTS[Math.floor(Math.random()*POKER_BOSS_EFFECTS.length)];
+  pk.result     = null;
+  pk.state      = 'playing';
+  pokerStartBlind();
+}
+
+function pokerStartBlind() {
+  const pk  = S.poker;
+  pk.deck   = buildPokerDeck();
+  pk.hand   = [pk.deck.pop(),pk.deck.pop(),pk.deck.pop(),pk.deck.pop(),
+               pk.deck.pop(),pk.deck.pop(),pk.deck.pop(),pk.deck.pop()];
+  pk.selected     = [];
+  pk.playsLeft    = 4;
+  pk.discardsLeft = pk.blind === 2 && pk.bossEffect.id === 'one_discard' ? 1 : 3;
+  pk.score        = 0;
+  renderPoker();
+}
+
+function pokerToggleCard(idx) {
+  const pk   = S.poker;
+  const maxSel = pk.blind === 2 && pk.bossEffect.id === 'max_2_cards' ? 2 : 5;
+  if (pk.selected.includes(idx)) {
+    pk.selected = pk.selected.filter(i => i !== idx);
+  } else if (pk.selected.length < maxSel) {
+    pk.selected.push(idx);
+  }
+  renderPoker();
+}
+
+function pokerPlay() {
+  const pk = S.poker;
+  if (pk.state !== 'playing' || pk.playsLeft <= 0 || pk.selected.length === 0) return;
+
+  const playedCards = pk.selected.map(i => pk.hand[i]);
+  const handResult  = evaluatePokerHand(playedCards);
+  const chipSum     = playedCards.reduce((s,c) => s + cardChips(c, pk.bossEffect.id), 0);
+  const points      = (handResult.chips + chipSum) * handResult.mult;
+  pk.score         += points;
+  pk.playsLeft--;
+
+  // Remove played cards and draw new ones
+  pk.hand = pk.hand.filter((_,i) => !pk.selected.includes(i));
+  while (pk.hand.length < 8 && pk.deck.length > 0) pk.hand.push(pk.deck.pop());
+  pk.selected = [];
+
+  const blind = POKER_BLINDS[pk.blind];
+
+  // Show what hand was played
+  toast(`${handResult.name} — +${Math.round(points)} pts`, 'success');
+
+  if (pk.score >= blind.target) {
+    // Blind won!
+    if (pk.blind === 2) {
+      // Won the whole game!
+      const prize = pk.bet * 3;
+      S.money += pk.bet + prize;
+      pk.state  = 'game_won';
+      pk.result = { outcome:'win', earned: prize };
+      renderHUD();
+      API.savePoker('win', pk.bet, 3).then(res => applyLevelUpResult(res)).catch(()=>{});
+    } else {
+      pk.blind++;
+      pk.state = 'blind_won';
+    }
+  } else if (pk.playsLeft === 0) {
+    // Out of plays — blind lost
+    pk.state  = 'blind_lost';
+    pk.result = { outcome:'lose' };
+    API.savePoker('lose', pk.bet, pk.blind).catch(()=>{});
+  }
+
+  renderPoker();
+}
+
+function pokerDiscard() {
+  const pk = S.poker;
+  if (pk.state !== 'playing' || pk.discardsLeft <= 0 || pk.selected.length === 0) return;
+  pk.hand = pk.hand.filter((_,i) => !pk.selected.includes(i));
+  while (pk.hand.length < 8 && pk.deck.length > 0) pk.hand.push(pk.deck.pop());
+  pk.selected = [];
+  pk.discardsLeft--;
+  renderPoker();
+}
+
+function pokerNextBlind() {
+  S.poker.state = 'playing';
+  pokerStartBlind();
+}
+
+function pokerSetBet(amount) {
+  S.poker.bet = Math.max(100, Math.min(amount, S.money));
+  renderPoker();
+}
+
+function pokerReset() {
+  S.poker.state = 'idle';
+  renderPoker();
+}
+
+function renderPoker() {
+  const el = document.getElementById('content');
+  const pk = S.poker;
+
+  // ── IDLE ──────────────────────────────────────────────────
+  if (pk.state === 'idle') {
+    el.innerHTML = `
+      <div class="page-title">🎴 BodegaPoker</div>
+      <div class="page-subtitle">Alcanza el puntaje objetivo en cada blind usando manos de póker.</div>
+
+      <div style="background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px">
+        <h3 style="margin:0 0 14px;color:var(--text1)">🎯 Los 3 Blinds</h3>
+        ${POKER_BLINDS.map((b,i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<2?'border-bottom:1px solid rgba(255,255,255,0.07)':''}">
+            <span style="font-size:1.4rem">${b.emoji}</span>
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:0.9rem">${b.name}</div>
+              <div style="font-size:0.75rem;color:var(--text2)">Objetivo: ${b.target.toLocaleString()} pts</div>
+            </div>
+            ${i===2?'<span style="font-size:0.7rem;color:#ff9800;font-weight:600">Efecto especial aleatorio</span>':''}
+          </div>`).join('')}
+      </div>
+
+      <div style="background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px">
+        <h3 style="margin:0 0 4px;color:var(--text1)">💰 Tu Apuesta</h3>
+        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Gana los 3 blinds → ×4 tu apuesta · Pierde → pierdes todo</div>
+        <div style="font-size:1.6rem;font-weight:700;color:var(--gold);text-align:center;margin:10px 0">${fmt(pk.bet)} 💰</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">
+          <div class="bj-chip chip-10"    onclick="pokerSetBet(S.poker.bet+100)">+100</div>
+          <div class="bj-chip chip-25"    onclick="pokerSetBet(S.poker.bet+250)">+250</div>
+          <div class="bj-chip chip-50"    onclick="pokerSetBet(S.poker.bet+500)">+500</div>
+          <div class="bj-chip chip-100"   onclick="pokerSetBet(S.poker.bet+1000)">+1K</div>
+          <div class="bj-chip chip-1000"  onclick="pokerSetBet(S.poker.bet+5000)">+5K</div>
+          <div class="bj-chip chip-10000" onclick="pokerSetBet(S.poker.bet+10000)">+10K</div>
+          <div class="bj-chip chip-10"    onclick="pokerSetBet(100)" style="background:#444">Reset</div>
+        </div>
+        <div style="text-align:center;font-size:0.8rem;color:var(--text2)">Premio si ganas: <strong style="color:var(--gold)">${fmt(pk.bet * 4)}</strong> (x4)</div>
+      </div>
+
+      <button class="btn-gold" style="width:100%;padding:14px;font-size:1rem"
+        onclick="pokerStart()" ${S.money < pk.bet ? 'disabled' : ''}>
+        🎴 Comenzar Partida
+      </button>
+      ${S.money < pk.bet ? `<div style="text-align:center;color:var(--danger);font-size:0.8rem;margin-top:8px">No tienes suficiente dinero</div>` : ''}
+    `;
+    return;
+  }
+
+  // ── BLIND WON ─────────────────────────────────────────────
+  if (pk.state === 'blind_won') {
+    const nextBlind = POKER_BLINDS[pk.blind];
+    el.innerHTML = `
+      <div class="page-title">🎴 BodegaPoker</div>
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:4rem">✅</div>
+        <h2 style="color:#4caf50;margin:10px 0">¡Blind Superado!</h2>
+        <p style="color:var(--text2)">Continúas hacia el siguiente nivel.</p>
+        <div style="background:var(--card);border-radius:12px;padding:16px;margin:20px 0">
+          <div style="font-size:1rem;color:var(--text1)">Siguiente: ${nextBlind.emoji} ${nextBlind.name}</div>
+          <div style="font-size:0.85rem;color:var(--text2);margin-top:4px">Objetivo: ${nextBlind.target.toLocaleString()} pts</div>
+          ${pk.blind === 2 ? `<div style="font-size:0.8rem;color:#ff9800;margin-top:8px">⚠️ Efecto Boss: ${pk.bossEffect.desc}</div>` : ''}
+        </div>
+        <button class="btn-gold" style="width:100%;padding:14px" onclick="pokerNextBlind()">
+          ${nextBlind.emoji} Ir al ${nextBlind.name}
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── BLIND LOST ────────────────────────────────────────────
+  if (pk.state === 'blind_lost') {
+    el.innerHTML = `
+      <div class="page-title">🎴 BodegaPoker</div>
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:4rem">💀</div>
+        <h2 style="color:var(--danger);margin:10px 0">¡Fallaste el Blind!</h2>
+        <p style="color:var(--text2)">No alcanzaste el objetivo. Perdiste tu apuesta.</p>
+        <div style="font-size:1.4rem;color:var(--danger);margin:16px 0">−${fmt(pk.bet)} 💰</div>
+        <button class="btn-primary" style="width:100%;padding:14px" onclick="pokerReset()">🔄 Intentar de Nuevo</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── GAME WON ──────────────────────────────────────────────
+  if (pk.state === 'game_won') {
+    el.innerHTML = `
+      <div class="page-title">🎴 BodegaPoker</div>
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:4rem">🏆</div>
+        <h2 style="color:var(--gold);margin:10px 0">¡Victoria Total!</h2>
+        <p style="color:var(--text2)">Superaste los 3 blinds. ¡Eres un maestro del póker!</p>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--gold);margin:16px 0">+${fmt(pk.result.earned)} 💰</div>
+        <button class="btn-gold" style="width:100%;padding:14px" onclick="pokerReset()">🎴 Nueva Partida</button>
+      </div>
+    `;
+    return;
+  }
+
+  // ── PLAYING ───────────────────────────────────────────────
+  const blind  = POKER_BLINDS[pk.blind];
+  const pct    = Math.min(100, Math.round(pk.score / blind.target * 100));
+  const isBoss = pk.blind === 2;
+  const maxSel = isBoss && pk.bossEffect.id === 'max_2_cards' ? 2 : 5;
+
+  // Preview of selected hand
+  const selCards     = pk.selected.map(i => pk.hand[i]);
+  const preview      = selCards.length > 0 ? evaluatePokerHand(selCards) : null;
+  const previewChips = selCards.reduce((s,c) => s + cardChips(c, isBoss ? pk.bossEffect.id : null), 0);
+  const previewScore = preview ? (preview.chips + previewChips) * preview.mult : 0;
+
+  el.innerHTML = `
+    <div class="page-title">🎴 BodegaPoker</div>
+
+    <!-- Blind info bar -->
+    <div style="background:var(--card);border-radius:12px;padding:12px 16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:700;font-size:1rem">${blind.emoji} ${blind.name}</span>
+        <span style="font-size:0.85rem;color:var(--gold);font-weight:700">${Math.round(pk.score).toLocaleString()} / ${blind.target.toLocaleString()} pts</span>
+      </div>
+      <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:10px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${pct>=100?'#4caf50':pct>60?'#ff9800':'#2196f3'};border-radius:6px;transition:width 0.3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.78rem;color:var(--text2)">
+        <span>🎯 Jugadas: <strong style="color:${pk.playsLeft<=1?'var(--danger)':'var(--text1)'}">${pk.playsLeft}</strong></span>
+        <span>♻️ Descartes: <strong style="color:${pk.discardsLeft===0?'var(--danger)':'var(--text1)'}">${pk.discardsLeft}</strong></span>
+        ${isBoss ? `<span style="color:#ff9800">⚠️ ${pk.bossEffect.desc}</span>` : ''}
+      </div>
+    </div>
+
+    <!-- Hand preview -->
+    ${preview ? `
+    <div style="background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:10px;
+         padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-weight:700;color:#ff9800">${preview.name}</span>
+      <span style="font-size:0.8rem;color:var(--text2)">(${preview.chips}+${previewChips}) × ${preview.mult} = <strong style="color:var(--gold)">+${previewScore} pts</strong></span>
+    </div>` : `
+    <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:8px 14px;margin-bottom:10px;
+         text-align:center;font-size:0.8rem;color:var(--text2)">
+      Selecciona de 1 a ${maxSel} carta${maxSel>1?'s':''} para jugar
+    </div>`}
+
+    <!-- Cards hand -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      ${pk.hand.map((c,i) => {
+        const sel = pk.selected.includes(i);
+        const cc  = cardChips(c, isBoss ? pk.bossEffect.id : null);
+        return `
+        <div onclick="pokerToggleCard(${i})"
+          style="background:${sel?'rgba(255,193,7,0.2)':'var(--card)'};
+                 border:2px solid ${sel?'#ffc107':'rgba(255,255,255,0.12)'};
+                 border-radius:10px;padding:8px 6px;text-align:center;cursor:pointer;
+                 transform:${sel?'translateY(-4px)':'none'};transition:all 0.15s;
+                 ${isBoss&&pk.bossEffect.id==='no_figures'&&['J','Q','K'].includes(c.face)?'opacity:0.5':''}">
+          <div style="font-size:1.1rem;font-weight:700;color:${c.red?'#ef5350':'var(--text1)'}">${c.face}</div>
+          <div style="font-size:1.2rem;color:${c.red?'#ef5350':'#90caf9'}">${c.suit}</div>
+          <div style="font-size:0.65rem;color:${cc>0?'var(--gold)':'var(--text2)'};margin-top:2px">${cc} chips</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn-gold" onclick="pokerPlay()"
+        ${pk.playsLeft<=0||pk.selected.length===0?'disabled':''}>
+        ▶ Jugar (${pk.selected.length} carta${pk.selected.length!==1?'s':''})
+      </button>
+      <button class="btn-outline" onclick="pokerDiscard()"
+        ${pk.discardsLeft<=0||pk.selected.length===0?'disabled':''}>
+        ♻️ Descartar (${pk.discardsLeft} left)
+      </button>
     </div>
   `;
 }

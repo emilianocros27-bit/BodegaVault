@@ -162,6 +162,9 @@ const API = {
   saveBlackjack: (outcome, bet, streak) =>
     apiFetch('/player/blackjack', { method:'POST', body: JSON.stringify({ outcome, bet, streak }) }),
 
+  savePoker: (outcome, bet, blindsWon) =>
+    apiFetch('/player/poker', { method:'POST', body: JSON.stringify({ outcome, bet, blindsWon }) }),
+
   // Roulette
   spinRoulette: () =>
     apiFetch('/player/roulette', { method:'POST' }),
