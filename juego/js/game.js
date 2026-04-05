@@ -2167,50 +2167,137 @@ function pokerReset() {
   renderPoker();
 }
 
+function pokerHelp() {
+  showModal(`
+    <div style="max-height:80vh;overflow-y:auto;padding:4px">
+      <h2 style="text-align:center;color:var(--gold);margin:0 0 16px">🎴 Cómo jugar BodegaPoker</h2>
+
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--text1);margin-bottom:8px">🎯 Objetivo</div>
+        <div style="font-size:0.85rem;color:var(--text2);line-height:1.6">
+          Supera los <strong style="color:white">3 Blinds</strong> acumulando puntos con manos de póker.
+          Si ganas los 3, recibes <strong style="color:var(--gold)">×4 tu apuesta</strong>. Si fallas uno, pierdes todo.
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--text1);margin-bottom:10px">🃏 Cómo se juega</div>
+        <div style="font-size:0.85rem;color:var(--text2);line-height:1.8">
+          1. Tienes <strong style="color:white">8 cartas</strong> en mano.<br>
+          2. <strong style="color:white">Toca</strong> las cartas que quieras seleccionar (hasta 5).<br>
+          3. Pulsa <strong style="color:var(--gold)">▶ Jugar</strong> para puntuar con esa mano.<br>
+          4. O pulsa <strong style="color:#90caf9">♻️ Descartar</strong> para cambiar cartas sin puntuar.<br>
+          5. Tienes <strong style="color:white">4 jugadas</strong> y <strong style="color:white">3 descartes</strong> por blind.
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--text1);margin-bottom:10px">📊 Cómo se calculan los puntos</div>
+        <div style="font-size:0.82rem;color:var(--text2);line-height:1.6">
+          <strong style="color:white">Puntos = (Chips base de la mano + Chips de tus cartas) × Multiplicador</strong><br><br>
+          Chips de las cartas: 2-9 = su número · 10/J/Q/K = 10 · As = 11
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--text1);margin-bottom:10px">🏆 Manos (de menor a mayor)</div>
+        <div style="display:grid;gap:6px;font-size:0.82rem">
+          ${[
+            ['Carta Alta',       '5 chips',  '×1',  '#9e9e9e'],
+            ['Par',              '20 chips', '×2',  '#2196f3'],
+            ['Doble Par',        '30 chips', '×2',  '#2196f3'],
+            ['Trío',             '50 chips', '×3',  '#9c27b0'],
+            ['Escalera',         '80 chips', '×4',  '#ff9800'],
+            ['Color',            '80 chips', '×4',  '#ff9800'],
+            ['Full House',       '90 chips', '×4',  '#ff9800'],
+            ['Póker',           '120 chips', '×7',  '#f44336'],
+            ['Escalera de Color','200 chips','×8',  '#e91e63'],
+            ['Escalera Real',   '200 chips', '×8',  '#ffd700'],
+          ].map(([name, chips, mult, color]) => `
+            <div style="display:flex;align-items:center;justify-content:space-between;
+                 background:rgba(255,255,255,0.03);border-radius:8px;padding:6px 10px;
+                 border-left:3px solid ${color}">
+              <span style="color:${color};font-weight:600">${name}</span>
+              <span style="color:var(--text2)">${chips} <strong style="color:white">${mult}</strong></span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div style="background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;color:#ff9800;margin-bottom:8px">💀 Boss Blind</div>
+        <div style="font-size:0.82rem;color:var(--text2);line-height:1.6">
+          El tercer blind siempre tiene un <strong style="color:#ff9800">efecto especial aleatorio</strong>:<br>
+          • <strong style="color:white">J, Q, K valen 0 chips</strong> (pero siguen formando manos)<br>
+          • <strong style="color:white">Máximo 2 cartas</strong> por jugada<br>
+          • <strong style="color:white">Solo 1 descarte</strong> total
+        </div>
+      </div>
+
+      <button class="btn-gold" style="width:100%;padding:12px" onclick="hideModal()">¡Entendido!</button>
+    </div>
+  `);
+}
+
 function renderPoker() {
   const el = document.getElementById('content');
   const pk = S.poker;
 
+  const helpBtn = `<button onclick="pokerHelp()" style="
+    background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+    color:var(--text2);border-radius:8px;padding:5px 12px;font-size:0.8rem;cursor:pointer;
+    float:right;margin-top:-4px">❓ Ayuda</button>`;
+
   // ── IDLE ──────────────────────────────────────────────────
   if (pk.state === 'idle') {
     el.innerHTML = `
-      <div class="page-title">🎴 BodegaPoker</div>
-      <div class="page-subtitle">Alcanza el puntaje objetivo en cada blind usando manos de póker.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="page-title" style="margin:0">🎴 BodegaPoker</div>
+        ${helpBtn}
+      </div>
+      <div class="page-subtitle">Supera los 3 Blinds para ganar ×4 tu apuesta.</div>
 
-      <div style="background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px">
-        <h3 style="margin:0 0 14px;color:var(--text1)">🎯 Los 3 Blinds</h3>
+      <!-- Blinds -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
         ${POKER_BLINDS.map((b,i) => `
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<2?'border-bottom:1px solid rgba(255,255,255,0.07)':''}">
-            <span style="font-size:1.4rem">${b.emoji}</span>
-            <div style="flex:1">
-              <div style="font-weight:600;font-size:0.9rem">${b.name}</div>
-              <div style="font-size:0.75rem;color:var(--text2)">Objetivo: ${b.target.toLocaleString()} pts</div>
-            </div>
-            ${i===2?'<span style="font-size:0.7rem;color:#ff9800;font-weight:600">Efecto especial aleatorio</span>':''}
+          <div style="background:var(--card);border-radius:14px;padding:16px 12px;text-align:center;
+               border:1px solid ${i===2?'rgba(255,152,0,0.3)':'rgba(255,255,255,0.07)'}">
+            <div style="font-size:2rem;margin-bottom:6px">${b.emoji}</div>
+            <div style="font-weight:700;font-size:0.9rem;color:var(--text1)">${b.name}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:var(--gold);margin:6px 0">${b.target.toLocaleString()}</div>
+            <div style="font-size:0.7rem;color:var(--text2)">puntos</div>
+            ${i===2?`<div style="font-size:0.65rem;color:#ff9800;margin-top:6px;font-weight:600">⚠️ Efecto especial</div>`:''}
           </div>`).join('')}
       </div>
 
+      <!-- Apuesta -->
       <div style="background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px">
-        <h3 style="margin:0 0 4px;color:var(--text1)">💰 Tu Apuesta</h3>
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">Gana los 3 blinds → ×4 tu apuesta · Pierde → pierdes todo</div>
-        <div style="font-size:1.6rem;font-weight:700;color:var(--gold);text-align:center;margin:10px 0">${fmt(pk.bet)} 💰</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h3 style="margin:0;color:var(--text1)">💰 Tu Apuesta</h3>
+          <div style="font-size:0.75rem;color:var(--text2)">Premio si ganas: <strong style="color:var(--gold)">${fmt(pk.bet * 4)}</strong></div>
+        </div>
+        <div style="font-size:2.2rem;font-weight:700;color:var(--gold);text-align:center;margin:10px 0;
+             background:rgba(255,193,7,0.08);border-radius:10px;padding:12px">
+          ${fmt(pk.bet)} 💰
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0">
           <div class="bj-chip chip-10"    onclick="pokerSetBet(S.poker.bet+100)">+100</div>
           <div class="bj-chip chip-25"    onclick="pokerSetBet(S.poker.bet+250)">+250</div>
           <div class="bj-chip chip-50"    onclick="pokerSetBet(S.poker.bet+500)">+500</div>
           <div class="bj-chip chip-100"   onclick="pokerSetBet(S.poker.bet+1000)">+1K</div>
           <div class="bj-chip chip-1000"  onclick="pokerSetBet(S.poker.bet+5000)">+5K</div>
           <div class="bj-chip chip-10000" onclick="pokerSetBet(S.poker.bet+10000)">+10K</div>
-          <div class="bj-chip chip-10"    onclick="pokerSetBet(100)" style="background:#444">Reset</div>
+          <div class="bj-chip chip-10"    onclick="pokerSetBet(100)" style="background:#444;color:#ccc">↺</div>
         </div>
-        <div style="text-align:center;font-size:0.8rem;color:var(--text2)">Premio si ganas: <strong style="color:var(--gold)">${fmt(pk.bet * 4)}</strong> (x4)</div>
+        <div style="font-size:0.75rem;color:var(--text2);text-align:center">
+          Apuesta mínima: 100 · Disponible: <strong style="color:white">${fmt(S.money)}</strong>
+        </div>
       </div>
 
-      <button class="btn-gold" style="width:100%;padding:14px;font-size:1rem"
+      <button class="btn-gold" style="width:100%;padding:16px;font-size:1.05rem;font-weight:700"
         onclick="pokerStart()" ${S.money < pk.bet ? 'disabled' : ''}>
         🎴 Comenzar Partida
       </button>
-      ${S.money < pk.bet ? `<div style="text-align:center;color:var(--danger);font-size:0.8rem;margin-top:8px">No tienes suficiente dinero</div>` : ''}
+      ${S.money < pk.bet ? `<div style="text-align:center;color:var(--danger);font-size:0.8rem;margin-top:8px">Sin fondos suficientes</div>` : ''}
     `;
     return;
   }
@@ -2219,18 +2306,27 @@ function renderPoker() {
   if (pk.state === 'blind_won') {
     const nextBlind = POKER_BLINDS[pk.blind];
     el.innerHTML = `
-      <div class="page-title">🎴 BodegaPoker</div>
-      <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:4rem">✅</div>
-        <h2 style="color:#4caf50;margin:10px 0">¡Blind Superado!</h2>
-        <p style="color:var(--text2)">Continúas hacia el siguiente nivel.</p>
-        <div style="background:var(--card);border-radius:12px;padding:16px;margin:20px 0">
-          <div style="font-size:1rem;color:var(--text1)">Siguiente: ${nextBlind.emoji} ${nextBlind.name}</div>
-          <div style="font-size:0.85rem;color:var(--text2);margin-top:4px">Objetivo: ${nextBlind.target.toLocaleString()} pts</div>
-          ${pk.blind === 2 ? `<div style="font-size:0.8rem;color:#ff9800;margin-top:8px">⚠️ Efecto Boss: ${pk.bossEffect.desc}</div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="page-title" style="margin:0">🎴 BodegaPoker</div>
+        ${helpBtn}
+      </div>
+      <div style="text-align:center;padding:30px 20px">
+        <div style="font-size:5rem;margin-bottom:10px">✅</div>
+        <h2 style="color:#4caf50;margin:0 0 8px;font-size:1.6rem">¡Blind Superado!</h2>
+        <p style="color:var(--text2);margin:0 0 24px">Sigues en pie. Prepárate para el siguiente.</p>
+        <div style="background:var(--card);border-radius:14px;padding:20px;margin-bottom:20px;
+             border:1px solid ${pk.blind===2?'rgba(255,152,0,0.4)':'rgba(255,255,255,0.1)'}">
+          <div style="font-size:2.5rem">${nextBlind.emoji}</div>
+          <div style="font-size:1.2rem;font-weight:700;color:var(--text1);margin:8px 0">${nextBlind.name}</div>
+          <div style="font-size:1.6rem;font-weight:700;color:var(--gold)">${nextBlind.target.toLocaleString()} pts</div>
+          ${pk.blind === 2 ? `
+            <div style="margin-top:12px;background:rgba(255,152,0,0.1);border-radius:8px;padding:10px;
+                 font-size:0.82rem;color:#ff9800">
+              ⚠️ <strong>Efecto Boss:</strong> ${pk.bossEffect.desc}
+            </div>` : ''}
         </div>
-        <button class="btn-gold" style="width:100%;padding:14px" onclick="pokerNextBlind()">
-          ${nextBlind.emoji} Ir al ${nextBlind.name}
+        <button class="btn-gold" style="width:100%;padding:16px;font-size:1rem;font-weight:700" onclick="pokerNextBlind()">
+          ${nextBlind.emoji} ¡Al ${nextBlind.name}!
         </button>
       </div>
     `;
@@ -2241,12 +2337,15 @@ function renderPoker() {
   if (pk.state === 'blind_lost') {
     el.innerHTML = `
       <div class="page-title">🎴 BodegaPoker</div>
-      <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:4rem">💀</div>
-        <h2 style="color:var(--danger);margin:10px 0">¡Fallaste el Blind!</h2>
-        <p style="color:var(--text2)">No alcanzaste el objetivo. Perdiste tu apuesta.</p>
-        <div style="font-size:1.4rem;color:var(--danger);margin:16px 0">−${fmt(pk.bet)} 💰</div>
-        <button class="btn-primary" style="width:100%;padding:14px" onclick="pokerReset()">🔄 Intentar de Nuevo</button>
+      <div style="text-align:center;padding:30px 20px">
+        <div style="font-size:5rem;margin-bottom:10px">💀</div>
+        <h2 style="color:var(--danger);margin:0 0 8px;font-size:1.6rem">¡Fallaste el Blind!</h2>
+        <p style="color:var(--text2);margin:0 0 20px">No alcanzaste el objetivo. Perdiste tu apuesta.</p>
+        <div style="background:rgba(244,67,54,0.1);border:1px solid rgba(244,67,54,0.3);
+             border-radius:14px;padding:20px;margin-bottom:20px;font-size:2rem;font-weight:700;color:var(--danger)">
+          −${fmt(pk.bet)} 💰
+        </div>
+        <button class="btn-gold" style="width:100%;padding:16px;font-weight:700" onclick="pokerReset()">🔄 Nueva Partida</button>
       </div>
     `;
     return;
@@ -2256,88 +2355,133 @@ function renderPoker() {
   if (pk.state === 'game_won') {
     el.innerHTML = `
       <div class="page-title">🎴 BodegaPoker</div>
-      <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:4rem">🏆</div>
-        <h2 style="color:var(--gold);margin:10px 0">¡Victoria Total!</h2>
-        <p style="color:var(--text2)">Superaste los 3 blinds. ¡Eres un maestro del póker!</p>
-        <div style="font-size:1.8rem;font-weight:700;color:var(--gold);margin:16px 0">+${fmt(pk.result.earned)} 💰</div>
-        <button class="btn-gold" style="width:100%;padding:14px" onclick="pokerReset()">🎴 Nueva Partida</button>
+      <div style="text-align:center;padding:30px 20px">
+        <div style="font-size:5rem;margin-bottom:10px">🏆</div>
+        <h2 style="color:var(--gold);margin:0 0 8px;font-size:1.6rem">¡Victoria Total!</h2>
+        <p style="color:var(--text2);margin:0 0 20px">Superaste los 3 blinds. ¡Eres un maestro!</p>
+        <div style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);
+             border-radius:14px;padding:24px;margin-bottom:20px">
+          <div style="font-size:0.85rem;color:var(--text2);margin-bottom:4px">Ganancia neta</div>
+          <div style="font-size:2.4rem;font-weight:700;color:var(--gold)">+${fmt(pk.result.earned)} 💰</div>
+        </div>
+        <button class="btn-gold" style="width:100%;padding:16px;font-weight:700" onclick="pokerReset()">🎴 Nueva Partida</button>
       </div>
     `;
     return;
   }
 
   // ── PLAYING ───────────────────────────────────────────────
-  const blind  = POKER_BLINDS[pk.blind];
-  const pct    = Math.min(100, Math.round(pk.score / blind.target * 100));
-  const isBoss = pk.blind === 2;
-  const maxSel = isBoss && pk.bossEffect.id === 'max_2_cards' ? 2 : 5;
+  const blind      = POKER_BLINDS[pk.blind];
+  const pct        = Math.min(100, Math.round(pk.score / blind.target * 100));
+  const isBoss     = pk.blind === 2;
+  const maxSel     = isBoss && pk.bossEffect.id === 'max_2_cards' ? 2 : 5;
+  const bossEff    = isBoss ? pk.bossEffect.id : null;
 
-  // Preview of selected hand
   const selCards     = pk.selected.map(i => pk.hand[i]);
   const preview      = selCards.length > 0 ? evaluatePokerHand(selCards) : null;
-  const previewChips = selCards.reduce((s,c) => s + cardChips(c, isBoss ? pk.bossEffect.id : null), 0);
+  const previewChips = selCards.reduce((s,c) => s + cardChips(c, bossEff), 0);
   const previewScore = preview ? (preview.chips + previewChips) * preview.mult : 0;
 
-  el.innerHTML = `
-    <div class="page-title">🎴 BodegaPoker</div>
+  const suitColor = s => (s==='♥'||s==='♦') ? '#e53935' : '#1a1a2e';
 
-    <!-- Blind info bar -->
-    <div style="background:var(--card);border-radius:12px;padding:12px 16px;margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:700;font-size:1rem">${blind.emoji} ${blind.name}</span>
-        <span style="font-size:0.85rem;color:var(--gold);font-weight:700">${Math.round(pk.score).toLocaleString()} / ${blind.target.toLocaleString()} pts</span>
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="page-title" style="margin:0">🎴 BodegaPoker</div>
+      ${helpBtn}
+    </div>
+
+    <!-- Blind progress bar -->
+    <div style="background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <span style="font-size:1.1rem;font-weight:700">${blind.emoji} ${blind.name}</span>
+          ${isBoss?`<span style="font-size:0.72rem;color:#ff9800;font-weight:600;margin-left:8px">⚠️ ${pk.bossEffect.desc}</span>`:''}
+        </div>
+        <span style="font-size:1rem;color:var(--gold);font-weight:700">${Math.round(pk.score).toLocaleString()} / ${blind.target.toLocaleString()}</span>
       </div>
-      <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:10px;overflow:hidden">
-        <div style="width:${pct}%;height:100%;background:${pct>=100?'#4caf50':pct>60?'#ff9800':'#2196f3'};border-radius:6px;transition:width 0.3s"></div>
+      <div style="background:rgba(255,255,255,0.08);border-radius:8px;height:14px;overflow:hidden;margin-bottom:10px">
+        <div style="width:${pct}%;height:100%;border-radius:8px;transition:width 0.4s;
+             background:${pct>=100?'#4caf50':pct>60?'#ff9800':'#2196f3'}"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.78rem;color:var(--text2)">
-        <span>🎯 Jugadas: <strong style="color:${pk.playsLeft<=1?'var(--danger)':'var(--text1)'}">${pk.playsLeft}</strong></span>
-        <span>♻️ Descartes: <strong style="color:${pk.discardsLeft===0?'var(--danger)':'var(--text1)'}">${pk.discardsLeft}</strong></span>
-        ${isBoss ? `<span style="color:#ff9800">⚠️ ${pk.bossEffect.desc}</span>` : ''}
+      <div style="display:flex;justify-content:space-around;font-size:0.82rem">
+        <div style="text-align:center">
+          <div style="color:var(--text2)">Jugadas</div>
+          <div style="font-size:1.3rem;font-weight:700;color:${pk.playsLeft<=1?'var(--danger)':'var(--text1)'}">${pk.playsLeft}</div>
+        </div>
+        <div style="width:1px;background:rgba(255,255,255,0.08)"></div>
+        <div style="text-align:center">
+          <div style="color:var(--text2)">Descartes</div>
+          <div style="font-size:1.3rem;font-weight:700;color:${pk.discardsLeft===0?'var(--danger)':'var(--text1)'}">${pk.discardsLeft}</div>
+        </div>
+        <div style="width:1px;background:rgba(255,255,255,0.08)"></div>
+        <div style="text-align:center">
+          <div style="color:var(--text2)">Seleccionadas</div>
+          <div style="font-size:1.3rem;font-weight:700;color:var(--gold)">${pk.selected.length} / ${maxSel}</div>
+        </div>
       </div>
     </div>
 
     <!-- Hand preview -->
-    ${preview ? `
-    <div style="background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:10px;
-         padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-weight:700;color:#ff9800">${preview.name}</span>
-      <span style="font-size:0.8rem;color:var(--text2)">(${preview.chips}+${previewChips}) × ${preview.mult} = <strong style="color:var(--gold)">+${previewScore} pts</strong></span>
-    </div>` : `
-    <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:8px 14px;margin-bottom:10px;
-         text-align:center;font-size:0.8rem;color:var(--text2)">
-      Selecciona de 1 a ${maxSel} carta${maxSel>1?'s':''} para jugar
-    </div>`}
+    <div style="min-height:52px;border-radius:12px;padding:10px 16px;margin-bottom:12px;
+         display:flex;align-items:center;justify-content:space-between;
+         background:${preview?'rgba(255,152,0,0.12)':'rgba(255,255,255,0.04)'};
+         border:1px solid ${preview?'rgba(255,152,0,0.4)':'rgba(255,255,255,0.07)'}">
+      ${preview ? `
+        <div>
+          <div style="font-size:1rem;font-weight:700;color:#ff9800">${preview.name}</div>
+          <div style="font-size:0.75rem;color:var(--text2)">(${preview.chips} + ${previewChips}) × ${preview.mult}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:1.3rem;font-weight:700;color:var(--gold)">+${previewScore}</div>
+          <div style="font-size:0.7rem;color:var(--text2)">puntos</div>
+        </div>
+      ` : `
+        <span style="color:var(--text2);font-size:0.85rem;width:100%;text-align:center">
+          Toca las cartas que quieras jugar (máx. ${maxSel})
+        </span>
+      `}
+    </div>
 
-    <!-- Cards hand -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+    <!-- Cards: 4 arriba + 4 abajo -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
       ${pk.hand.map((c,i) => {
-        const sel = pk.selected.includes(i);
-        const cc  = cardChips(c, isBoss ? pk.bossEffect.id : null);
+        const sel     = pk.selected.includes(i);
+        const cc      = cardChips(c, bossEff);
+        const dimmed  = bossEff==='no_figures' && ['J','Q','K'].includes(c.face);
         return `
-        <div onclick="pokerToggleCard(${i})"
-          style="background:${sel?'rgba(255,193,7,0.2)':'var(--card)'};
-                 border:2px solid ${sel?'#ffc107':'rgba(255,255,255,0.12)'};
-                 border-radius:10px;padding:8px 6px;text-align:center;cursor:pointer;
-                 transform:${sel?'translateY(-4px)':'none'};transition:all 0.15s;
-                 ${isBoss&&pk.bossEffect.id==='no_figures'&&['J','Q','K'].includes(c.face)?'opacity:0.5':''}">
-          <div style="font-size:1.1rem;font-weight:700;color:${c.red?'#ef5350':'var(--text1)'}">${c.face}</div>
-          <div style="font-size:1.2rem;color:${c.red?'#ef5350':'#90caf9'}">${c.suit}</div>
-          <div style="font-size:0.65rem;color:${cc>0?'var(--gold)':'var(--text2)'};margin-top:2px">${cc} chips</div>
+        <div onclick="pokerToggleCard(${i})" style="
+          background:${sel?'#fffde7':'#ffffff'};
+          border:3px solid ${sel?'#ffc107':'#ddd'};
+          border-radius:12px;padding:10px 6px 8px;text-align:center;cursor:pointer;
+          transform:${sel?'translateY(-8px) scale(1.04)':'none'};
+          transition:all 0.15s ease;
+          box-shadow:${sel?'0 8px 20px rgba(255,193,7,0.4)':'0 2px 6px rgba(0,0,0,0.4)'};
+          opacity:${dimmed?'0.45':'1'};
+          min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+          position:relative">
+          <div style="align-self:flex-start;font-size:0.9rem;font-weight:700;color:${c.red?'#e53935':'#1a1a2e'};line-height:1">${c.face}</div>
+          <div style="font-size:2rem;line-height:1;color:${c.red?'#e53935':'#1a1a2e'}">${c.suit}</div>
+          <div style="font-size:0.65rem;font-weight:600;color:${cc>0?'#e65100':'#999'};
+               background:${cc>0?'rgba(230,81,0,0.1)':'rgba(0,0,0,0.05)'};
+               border-radius:4px;padding:2px 6px">${cc} chips</div>
         </div>`;
       }).join('')}
     </div>
 
-    <!-- Buttons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <button class="btn-gold" onclick="pokerPlay()"
-        ${pk.playsLeft<=0||pk.selected.length===0?'disabled':''}>
-        ▶ Jugar (${pk.selected.length} carta${pk.selected.length!==1?'s':''})
+    <!-- Botones de acción -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <button onclick="pokerPlay()" ${pk.playsLeft<=0||pk.selected.length===0?'disabled':''}
+        style="padding:16px;font-size:1rem;font-weight:700;border-radius:12px;border:none;cursor:pointer;
+               background:${pk.playsLeft>0&&pk.selected.length>0?'#ffc107':'#444'};
+               color:${pk.playsLeft>0&&pk.selected.length>0?'#1a1a2e':'#666'};transition:all 0.15s">
+        ▶ Jugar ${pk.selected.length>0?'('+pk.selected.length+')':''}
       </button>
-      <button class="btn-outline" onclick="pokerDiscard()"
-        ${pk.discardsLeft<=0||pk.selected.length===0?'disabled':''}>
-        ♻️ Descartar (${pk.discardsLeft} left)
+      <button onclick="pokerDiscard()" ${pk.discardsLeft<=0||pk.selected.length===0?'disabled':''}
+        style="padding:16px;font-size:1rem;font-weight:700;border-radius:12px;border:2px solid;cursor:pointer;
+               background:transparent;transition:all 0.15s;
+               border-color:${pk.discardsLeft>0&&pk.selected.length>0?'#2196f3':'#333'};
+               color:${pk.discardsLeft>0&&pk.selected.length>0?'#2196f3':'#555'}">
+        ♻️ Descartar (${pk.discardsLeft})
       </button>
     </div>
   `;
