@@ -10,7 +10,7 @@ let S = {
   notifications: [], unlockedAch: [], dailyLast: null,
   screen: 'hub',
   // Nuevos campos
-  rouletteLast: null, bodegaVouchers: 0, levelRewardsClaimed: 0, dailySales: 0,
+  rouletteLast: null, bodegaVouchers: 0, levelRewardsClaimed: 0, dailySales: 0, equippedTitle: null,
   showcase: [],
   friends: [], friendRequests: [],
   auctions: [], myAuctions: [],
@@ -25,6 +25,14 @@ let S = {
 
 // Intervalo para countdown de subastas
 let auctionCountdownInterval = null;
+
+const TITLES_MAP = {
+  collector_all: 'Pansita Llena Corazon Contento',
+  level_50:      'Niño Rata',
+  millionaire:   'Goloso',
+  poker_royal:   'La Escalera es la Clave',
+  bodega_50:     'Comprador Compulsivo',
+};
 
 // ─── CARGA DE ESTADO DESDE API ────────────────────────────
 async function loadGameState() {
@@ -82,6 +90,14 @@ async function loadGameState() {
     S.pendingGifts        = pendingGifts || [];
     S.revestimientos      = revData?.revestimientos || [];
     S.activeRevestimiento = revData?.active || null;
+
+    // Load equipped title
+    try {
+      const titlesData = await API.getMyTitles();
+      S.equippedTitle = titlesData?.equipped || null;
+    } catch (_) {
+      S.equippedTitle = null;
+    }
 
   } catch (err) {
     console.error('Error cargando partida:', err);
@@ -1078,6 +1094,16 @@ function renderHUD() {
   document.getElementById('xp-display').textContent = `${fmt(S.xp)} / ${fmt(S.xpNext)} XP`;
   const hudUser = document.getElementById('hud-user');
   if (hudUser) hudUser.textContent = S.avatar || '🧑';
+  const hudTitle = document.getElementById('hud-title');
+  if (hudTitle) {
+    if (S.equippedTitle && TITLES_MAP[S.equippedTitle]) {
+      hudTitle.textContent = TITLES_MAP[S.equippedTitle];
+      hudTitle.classList.remove('hidden');
+    } else {
+      hudTitle.textContent = '';
+      hudTitle.classList.add('hidden');
+    }
+  }
   if (S.bodegaVouchers > 0) {
     const vEl = document.getElementById('voucher-badge');
     if (vEl) { vEl.textContent = `🎁×${S.bodegaVouchers}`; vEl.classList.remove('hidden'); }
@@ -1550,6 +1576,7 @@ async function renderPerfilAsync(userId) {
         <div class="profile-avatar-big" ${isOwn ? 'onclick="showAvatarModal()" title="Cambiar avatar"' : ''}>${profile.avatar || '🧑'}</div>
         <div class="profile-info">
           <h2>${profile.username}</h2>
+          ${profile.equippedTitle && TITLES_MAP[profile.equippedTitle] ? `<div style="color:var(--gold);font-style:italic;font-size:0.85rem;margin-bottom:4px">🎖️ ${TITLES_MAP[profile.equippedTitle]}</div>` : ''}
           <div class="profile-badges">
             <span class="hud-level-badge">Nv. ${profile.level}</span>
             ${isOwn ? `<button class="btn-link" onclick="showAvatarModal()">✏️ Cambiar avatar</button>` : ''}
@@ -2100,7 +2127,7 @@ function renderColeccion() {
       <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-val">${fmt(S.stats.total_earned)}</div><div class="stat-label">Total ganado</div></div>
       <div class="stat-card"><div class="stat-icon">🏆</div><div class="stat-val">${S.stats.bj_best_streak}</div><div class="stat-label">Mejor racha cartas</div></div>
     </div>
-    <div class="section-title">Logros (${S.unlockedAch.length}/17)</div>
+    <div class="section-title">Logros (${S.unlockedAch.length}/20)</div>
     <div class="achievements-grid">
       ${ACHIEVEMENTS.map(a => `
         <div class="ach-card ${S.unlockedAch.includes(a.id) ? 'unlocked' : ''}">
@@ -2109,7 +2136,70 @@ function renderColeccion() {
           <div class="ach-desc">${a.desc}</div>
         </div>`).join('')}
     </div>
+    <div class="section-title">🎖️ Títulos</div>
+    <div id="titles-section"><div style="color:var(--text2);font-size:0.85rem">Cargando títulos...</div></div>
   `;
+  // Load titles asynchronously
+  setTimeout(() => renderTitlesSection(), 0);
+}
+
+async function renderTitlesSection() {
+  const el = document.getElementById('titles-section');
+  if (!el) return;
+  try {
+    const { titles, equipped } = await API.getMyTitles();
+    if (!titles || titles.length === 0) {
+      el.innerHTML = `<p style="color:var(--text2);font-size:0.85rem">Completa logros especiales para desbloquear títulos.</p>`;
+      return;
+    }
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${titles.map(tid => {
+          const titleText = TITLES_MAP[tid] || tid;
+          const isEquipped = equipped === tid;
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;
+                 background:${isEquipped ? 'rgba(255,215,0,0.12)' : 'var(--card-bg)'};
+                 border:1.5px solid ${isEquipped ? 'var(--gold)' : 'var(--border)'};
+                 border-radius:10px;padding:10px 14px;gap:10px">
+              <div>
+                <div style="font-weight:700;color:${isEquipped ? 'var(--gold)' : 'var(--text1)'}">🎖️ ${titleText}</div>
+                <div style="font-size:0.75rem;color:var(--text2);margin-top:2px">${isEquipped ? '✓ Equipado actualmente' : ''}</div>
+              </div>
+              ${isEquipped
+                ? `<button class="btn-outline btn-sm" onclick="doUnequipTitle()">Desequipar</button>`
+                : `<button class="btn-gold btn-sm" onclick="doEquipTitle('${tid}')">Equipar</button>`
+              }
+            </div>`;
+        }).join('')}
+      </div>`;
+  } catch (err) {
+    el.innerHTML = `<p style="color:var(--error);font-size:0.85rem">Error al cargar títulos.</p>`;
+  }
+}
+
+async function doEquipTitle(titleId) {
+  try {
+    await API.equipTitle(titleId);
+    S.equippedTitle = titleId;
+    renderHUD();
+    await renderTitlesSection();
+    toast('🎖️ Título equipado', 'success');
+  } catch (err) {
+    toast(err.message || 'Error al equipar título', 'error');
+  }
+}
+
+async function doUnequipTitle() {
+  try {
+    await API.equipTitle(null);
+    S.equippedTitle = null;
+    renderHUD();
+    await renderTitlesSection();
+    toast('Título desequipado', 'info');
+  } catch (err) {
+    toast(err.message || 'Error al desequipar título', 'error');
+  }
 }
 
 // ─── PANTALLA BLACKJACK ───────────────────────────────────
@@ -2257,7 +2347,7 @@ function evaluatePokerHand(cards) {
 
   if (isFlush && isStraight) {
     return isRoyal
-      ? { name:'Escalera Real',     chips:200, mult:8 }
+      ? { name:'Escalera Real',     chips:200, mult:8, isRoyalFlush:true }
       : { name:'Escalera de Color', chips:200, mult:8 };
   }
   if (n >= 4 && counts[0] === 4)                    return { name:'Póker',      chips:120, mult:7 };
@@ -2278,6 +2368,7 @@ function pokerStart() {
   pk.score      = 0;
   pk.bossEffect = POKER_BOSS_EFFECTS[Math.floor(Math.random()*POKER_BOSS_EFFECTS.length)];
   pk.result     = null;
+  pk.hadRoyalFlush = false;
   pk.state      = 'playing';
   pokerStartBlind();
 }
@@ -2316,6 +2407,9 @@ function pokerPlay() {
   pk.score         += points;
   pk.playsLeft--;
 
+  // Track royal flush
+  if (handResult.isRoyalFlush) pk.hadRoyalFlush = true;
+
   // Remove played cards and draw new ones
   pk.hand = pk.hand.filter((_,i) => !pk.selected.includes(i));
   while (pk.hand.length < 8 && pk.deck.length > 0) pk.hand.push(pk.deck.pop());
@@ -2335,7 +2429,7 @@ function pokerPlay() {
       pk.state  = 'game_won';
       pk.result = { outcome:'win', earned: prize };
       renderHUD();
-      API.savePoker('win', pk.bet, 3).then(res => applyLevelUpResult(res)).catch(()=>{});
+      API.savePoker('win', pk.bet, 3, pk.hadRoyalFlush).then(res => applyLevelUpResult(res)).catch(()=>{});
     } else {
       pk.blind++;
       pk.state = 'blind_won';

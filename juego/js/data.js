@@ -442,7 +442,7 @@ const ACHIEVEMENTS = [
   { id:'first_legendary',icon:'🏆', name:'Primer Legendario',   desc:'Obtén tu primer objeto legendario.', check: s => s.stats.found_legendary >= 1 },
   { id:'first_unique',   icon:'💫', name:'Objeto Único',        desc:'Obtén un objeto único.',              check: s => s.stats.found_unique >= 1 },
   { id:'rich',           icon:'💰', name:'Rico',                desc:'Alcanza 10,000 monedas.',             check: s => s.money >= 10000 },
-  { id:'millionaire',    icon:'🤑', name:'Millonario',          desc:'Alcanza 100,000 monedas.',            check: s => s.money >= 100000 },
+  { id:'millionaire',    icon:'🤑', name:'Millonario',          desc:'Alcanza 1,000,000 monedas.',          check: s => s.money >= 1000000 },
   { id:'sold_10',        icon:'💼', name:'Comerciante',         desc:'Completa 10 ventas.',                 check: s => s.stats.sold >= 10 },
   { id:'repaired_5',     icon:'🔧', name:'Manitas',             desc:'Repara 5 objetos.',                   check: s => s.stats.repaired >= 5 },
   { id:'bj_10',          icon:'🃏', name:'Tahúr',               desc:'Gana 10 manos de blackjack.',         check: s => s.stats.bj_wins >= 10 },
@@ -451,7 +451,10 @@ const ACHIEVEMENTS = [
   { id:'level_10',       icon:'🌟', name:'Veterano',            desc:'Alcanza el nivel 10.',                check: s => s.level >= 10 },
   { id:'level_25',       icon:'✨', name:'Maestro',             desc:'Alcanza el nivel 25.',                check: s => s.level >= 25 },
   { id:'collector_20',   icon:'📚', name:'Coleccionista',       desc:'Descubre 20 objetos distintos.',      check: s => Object.keys(s.collection).length >= 20 },
-  { id:'collector_all',  icon:'🎖️', name:'Completista',         desc:'Descubre todos los objetos.',         check: s => Object.keys(s.collection).length >= CATALOG.length },
+  { id:'collector_all',  icon:'🎖️', name:'Completista',         desc:'Registra 100 objetos en tu colección.', check: s => Object.keys(s.collection).length >= 100 },
+  { id:'level_50',       icon:'👑', name:'Leyenda',             desc:'Alcanza el nivel 50.',                check: s => s.level >= 50 },
+  { id:'bodega_50',      icon:'🏪', name:'Rey de las Bodegas',  desc:'Abre 50 bodegas.',                    check: s => s.stats.bodegas >= 50 },
+  { id:'poker_royal',    icon:'🃏', name:'Sangre Real',         desc:'Consigue una Escalera Real en BodegaPoker.', check: () => false },
 ];
 
 // ── RULETA ────────────────────────────────────────────────

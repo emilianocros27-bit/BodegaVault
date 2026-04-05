@@ -149,8 +149,8 @@ const API = {
   saveBlackjack: (outcome, bet, streak) =>
     apiFetch('/player/blackjack', { method:'POST', body: JSON.stringify({ outcome, bet, streak }) }),
 
-  savePoker: (outcome, bet, blindsWon) =>
-    apiFetch('/player/poker', { method:'POST', body: JSON.stringify({ outcome, bet, blindsWon }) }),
+  savePoker: (outcome, bet, blindsWon, royalFlush = false) =>
+    apiFetch('/player/poker', { method:'POST', body: JSON.stringify({ outcome, bet, blindsWon, royalFlush }) }),
 
   // Roulette
   spinRoulette: () =>
@@ -171,6 +171,8 @@ const API = {
     apiFetch('/profile/me/showcase', { method:'PUT', body: JSON.stringify({ slots }) }),
   getUserInventory: (userId) =>
     apiFetch(`/profile/${userId}/inventory`).then(items => items.map(normalizeItem)),
+  getMyTitles: () => apiFetch('/profile/me/titles'),
+  equipTitle: (title_id) => apiFetch('/profile/me/titles/equip', { method: 'POST', body: JSON.stringify({ title_id }) }),
 
   // Friends
   getFriends: () =>

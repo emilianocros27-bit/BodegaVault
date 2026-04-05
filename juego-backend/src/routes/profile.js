@@ -9,7 +9,7 @@ router.get('/:userId', requireAuth, async (req, res) => {
     const { rows: users } = await query(
       `SELECT u.id, u.username, u.avatar, u.created_at,
               s.level, s.money, s.bodegas_opened, s.items_sold,
-              s.total_earned, s.bj_wins, s.bj_best_streak
+              s.total_earned, s.bj_wins, s.bj_best_streak, s.equipped_title
        FROM users u JOIN user_stats s ON s.user_id = u.id
        WHERE u.id = $1 AND u.is_banned = FALSE`,
       [userId]
@@ -64,6 +64,7 @@ router.get('/:userId', requireAuth, async (req, res) => {
       achievements:   achRows.map(a => a.achievement_id),
       showcase:       showcaseRows,
       activeRevestimiento: activeRev,
+      equippedTitle:  user.equipped_title || null,
     });
   } catch (err) {
     console.error('profile error:', err);
@@ -158,6 +159,49 @@ router.get('/:userId/inventory', requireAuth, async (req, res) => {
     condition: i.condition, grade: i.grade, identified: i.identified,
     forSale: i.for_sale, value: i.value,
   })));
+});
+
+// ── GET /api/profile/me/titles ── Mis títulos desbloqueados
+router.get('/me/titles', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT ut.title_id, ut.unlocked_at, us.equipped_title
+       FROM user_titles ut
+       CROSS JOIN user_stats us
+       WHERE ut.user_id = $1 AND us.user_id = $1
+       ORDER BY ut.unlocked_at ASC`,
+      [req.user.id]
+    );
+    // If no titles yet, still return equipped_title from stats
+    if (rows.length === 0) {
+      const { rows: [stats] } = await query(`SELECT equipped_title FROM user_stats WHERE user_id=$1`, [req.user.id]);
+      return res.json({ titles: [], equipped: stats?.equipped_title || null });
+    }
+    res.json({ titles: rows.map(r => r.title_id), equipped: rows[0].equipped_title || null });
+  } catch (err) {
+    console.error('titles error:', err);
+    res.status(500).json({ error: 'Error al cargar títulos' });
+  }
+});
+
+// ── POST /api/profile/me/titles/equip ── Equipar título
+router.post('/me/titles/equip', requireAuth, async (req, res) => {
+  const { title_id } = req.body;
+  try {
+    if (title_id !== null) {
+      // Verify user owns this title
+      const { rows } = await query(
+        `SELECT 1 FROM user_titles WHERE user_id=$1 AND title_id=$2`,
+        [req.user.id, title_id]
+      );
+      if (!rows.length) return res.status(403).json({ error: 'No tienes ese título' });
+    }
+    await query(`UPDATE user_stats SET equipped_title=$1 WHERE user_id=$2`, [title_id, req.user.id]);
+    res.json({ equipped: title_id });
+  } catch (err) {
+    console.error('equip title error:', err);
+    res.status(500).json({ error: 'Error al equipar título' });
+  }
 });
 
 module.exports = router;

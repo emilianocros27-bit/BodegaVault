@@ -6,7 +6,7 @@ async function checkAchievements(client, userId) {
   // Leer stats completos
   const { rows: [stats] } = await client.query(
     `SELECT us.money, us.level, us.bodegas_opened, us.items_sold,
-            us.items_repaired, us.bj_wins, us.bj_best_streak, us.total_earned
+            us.items_repaired, us.bj_wins, us.bj_best_streak, us.total_earned, us.poker_royal_flushes
      FROM user_stats us WHERE us.user_id = $1`,
     [userId]
   );
@@ -46,7 +46,7 @@ async function checkAchievements(client, userId) {
     { id:'first_legendary', met: (byRarity.legendary || 0) >= 1 },
     { id:'first_unique',    met: (byRarity.unique    || 0) >= 1 },
     { id:'rich',            met: money >= 10000 },
-    { id:'millionaire',     met: money >= 100000 },
+    { id:'millionaire',     met: money >= 1000000 },
     { id:'sold_10',         met: sold >= 10 },
     { id:'repaired_5',      met: repaired >= 5 },
     { id:'bj_10',           met: bjWins >= 10 },
@@ -55,7 +55,10 @@ async function checkAchievements(client, userId) {
     { id:'level_10',        met: level >= 10 },
     { id:'level_25',        met: level >= 25 },
     { id:'collector_20',    met: collCount >= 20 },
-    { id:'collector_all',   met: collCount >= 60 },
+    { id:'collector_all',   met: collCount >= 100 },
+    { id:'level_50',        met: level >= 50 },
+    { id:'bodega_50',       met: bodegas >= 50 },
+    { id:'poker_royal',     met: (stats.poker_royal_flushes || 0) >= 1 },
   ];
 
   const newlyUnlocked = [];
@@ -71,6 +74,7 @@ async function checkAchievements(client, userId) {
         first_legendary:'🏆', first_unique:'💫', rich:'💰', millionaire:'🤑',
         sold_10:'💼', repaired_5:'🔧', bj_10:'🃏', bj_streak5:'🔥',
         level_5:'⭐', level_10:'🌟', level_25:'✨', collector_20:'📚', collector_all:'🎖️',
+        level_50:'👑', bodega_50:'🏪', poker_royal:'🃏',
       };
       const names = {
         first_bodega:'Primera Bodega', bodega_10:'Bodeguero', first_rare:'Primer Raro',
@@ -78,12 +82,31 @@ async function checkAchievements(client, userId) {
         rich:'Rico', millionaire:'Millonario', sold_10:'Comerciante', repaired_5:'Manitas',
         bj_10:'Tahúr', bj_streak5:'Racha de Fuego', level_5:'Aprendiz', level_10:'Veterano',
         level_25:'Maestro', collector_20:'Coleccionista', collector_all:'Completista',
+        level_50:'Leyenda', bodega_50:'Rey de las Bodegas', poker_royal:'Sangre Real',
       };
       await client.query(
         `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
         [userId, `${icons[id] || '🏅'} ¡Logro desbloqueado: ${names[id] || id}!`]
       );
       newlyUnlocked.push(id);
+
+      const TITLE_ACHIEVEMENTS = {
+        collector_all: 'Pansita Llena Corazon Contento',
+        level_50:      'Niño Rata',
+        millionaire:   'Goloso',
+        poker_royal:   'La Escalera es la Clave',
+        bodega_50:     'Comprador Compulsivo',
+      };
+      if (TITLE_ACHIEVEMENTS[id]) {
+        await client.query(
+          `INSERT INTO user_titles (user_id, title_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [userId, id]
+        );
+        await client.query(
+          `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+          [userId, `🎖️ ¡Título desbloqueado: "${TITLE_ACHIEVEMENTS[id]}"! Equípalo desde tus logros.`]
+        );
+      }
     }
   }
 

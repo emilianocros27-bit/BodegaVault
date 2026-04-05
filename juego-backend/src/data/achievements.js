@@ -17,4 +17,7 @@ module.exports = [
   { id:'level_25',        icon:'✨', name:'Maestro',            desc:'Alcanza el nivel 25.' },
   { id:'collector_20',    icon:'📚', name:'Coleccionista',      desc:'Descubre 20 objetos distintos.' },
   { id:'collector_all',   icon:'🎖️', name:'Completista',        desc:'Descubre todos los objetos.' },
+  { id:'level_50',        icon:'👑', name:'Leyenda',            desc:'Alcanza el nivel 50.' },
+  { id:'bodega_50',       icon:'🏪', name:'Rey de las Bodegas', desc:'Abre 50 bodegas.' },
+  { id:'poker_royal',     icon:'🃏', name:'Sangre Real',        desc:'Consigue una Escalera Real en BodegaPoker.' },
 ];

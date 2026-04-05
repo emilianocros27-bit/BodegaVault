@@ -290,7 +290,7 @@ router.post('/blackjack', requireAuth, async (req, res) => {
 
 // ── POST /api/player/poker ── Resultado de partida ────────
 router.post('/poker', requireAuth, async (req, res) => {
-  const { outcome, bet, blindsWon } = req.body;
+  const { outcome, bet, blindsWon, royalFlush } = req.body;
   if (!['win','lose'].includes(outcome))          return res.status(400).json({ error: 'outcome inválido' });
   if (!Number.isInteger(bet) || bet < 100)        return res.status(400).json({ error: 'apuesta inválida' });
   if (!Number.isInteger(blindsWon) || blindsWon < 0 || blindsWon > 3)
@@ -301,7 +301,7 @@ router.post('/poker', requireAuth, async (req, res) => {
   try {
     const result = await withTransaction(async (client) => {
       const { rows: [stats] } = await client.query(
-        `SELECT money, level, xp, xp_next FROM user_stats WHERE user_id=$1 FOR UPDATE`,
+        `SELECT money, level, xp, xp_next, level_rewards_claimed FROM user_stats WHERE user_id=$1 FOR UPDATE`,
         [req.user.id]
       );
 
@@ -316,11 +316,15 @@ router.post('/poker', requireAuth, async (req, res) => {
           money=money+$2+$3, xp=$4, level=$5, xp_next=$6,
           total_earned = total_earned + GREATEST($2,0),
           total_spent  = total_spent  + GREATEST(-$2,0),
-          level_rewards_claimed=$7
+          level_rewards_claimed=$7,
+          poker_wins = poker_wins + CASE WHEN $8 THEN 1 ELSE 0 END,
+          poker_royal_flushes = poker_royal_flushes + CASE WHEN $9 THEN 1 ELSE 0 END
          WHERE user_id=$1`,
         [req.user.id, moneyDelta, levelRewardsResult.coinsGained,
          xpR.xp, xpR.level, xpR.xpNext,
-         Math.max(stats.level_rewards_claimed || 0, xpR.level)]
+         Math.max(stats.level_rewards_claimed || 0, xpR.level),
+         outcome === 'win',
+         outcome === 'win' && royalFlush === true]
       );
 
       await client.query(
