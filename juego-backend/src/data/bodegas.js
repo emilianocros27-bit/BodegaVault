@@ -40,7 +40,7 @@ module.exports = [
     rarityWeights:    { common:0, rare:0, epic:45, legendary:40, unique:15 },
     conditionWeights: { new:60, used:35, damaged:5, very_damaged:0 },
     unidentifiedChance: 0.0,
-    minLevel: 15,
+    minLevel: 10,
   },
   {
     id: 'abismo', name: 'Caja del Abismo', cost: 250000,

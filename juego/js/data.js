@@ -408,7 +408,7 @@ const BODEGAS = [
     itemCount:{ min:5, max:8 },
     rarityW:{ epic:45, legendary:40, unique:15 },
     conditionW:{ new:60, used:35, damaged:5, very_damaged:0 },
-    unidChance:0, color:'#FFD700', minLevel:15,
+    unidChance:0, color:'#FFD700', minLevel:10,
   },
   {
     id:'abismo', name:'Caja del Abismo', icon:'💀', cost:250000,
