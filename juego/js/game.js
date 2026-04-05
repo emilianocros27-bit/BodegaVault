@@ -1073,7 +1073,10 @@ function renderScreen() {
       el.innerHTML = '<div class="page-title">🌐 Intercambios</div><div class="page-subtitle">Cargando...</div>';
       renderIntercambiosAsync();
       break;
-    case 'coleccion':  el.innerHTML = renderColeccion();  break;
+    case 'coleccion':
+      el.innerHTML = '<div class="page-title">📦 Colección</div><div class="page-subtitle">Cargando...</div>';
+      renderColeccion();
+      break;
     case 'cartas':     el.innerHTML = ''; renderBlackjack(); break;
     case 'poker':      el.innerHTML = ''; renderPoker();     break;
     case 'perfil':
@@ -2060,7 +2063,8 @@ async function renderColeccion() {
     byCategory[k]  = { total: catItems.length, found: foundCnt, completed, rewardOwned, rewardId };
   });
 
-  return `
+  const el = document.getElementById('game-container');
+  el.innerHTML = `
     <div class="page-title">📊 Colección</div>
     <div class="page-subtitle">Completa cada categoría para desbloquear un objeto exclusivo único.</div>
     <div class="collection-progress">
