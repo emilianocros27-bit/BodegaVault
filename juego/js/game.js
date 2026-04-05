@@ -2040,7 +2040,7 @@ async function doCreateAuction() {
 }
 
 // ─── PANTALLA COLECCIÓN ───────────────────────────────────
-function renderColeccion() {
+async function renderColeccion() {
   const total = CATALOG.length;
   const found = Object.keys(S.collection).length;
   const pct   = Math.round(found / total * 100);
@@ -2140,8 +2140,7 @@ function renderColeccion() {
     <div class="section-title">🎖️ Títulos</div>
     <div id="titles-section"><div style="color:var(--text2);font-size:0.85rem">Cargando títulos...</div></div>
   `;
-  // Load titles asynchronously
-  setTimeout(() => renderTitlesSection(), 0);
+  await renderTitlesSection();
 }
 
 async function renderTitlesSection() {
