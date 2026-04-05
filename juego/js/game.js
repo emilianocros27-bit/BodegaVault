@@ -1825,20 +1825,48 @@ function renderColeccion() {
     <div class="section-title">Por Categoría</div>
     <div class="cat-grid">
       ${Object.entries(byCategory).map(([k,v]) => {
-        const cat = CATEGORIES[k];
-        const p   = Math.round(v.found / v.total * 100);
+        const cat       = CATEGORIES[k];
+        const p         = Math.round(v.found / v.total * 100);
         const rewardCat = v.rewardId ? CATALOG.find(c => c.id === v.rewardId) : null;
-        const completedBadge = v.rewardOwned
-          ? `<div style="font-size:0.7rem;color:#e91e63;font-weight:700;margin-top:4px">🏆 ${rewardCat ? rewardCat.name : 'Recompensa obtenida'}</div>`
-          : v.completed
-          ? `<div style="font-size:0.7rem;color:#ff9800;font-weight:700;margin-top:4px">✅ ¡Completo! Abre otra bodega para reclamar</div>`
-          : '';
+        const r         = rewardCat ? RARITIES[rewardCat.rarity] : null;
+
+        // Mini-tarjeta del objeto de recompensa
+        const miniCard = rewardCat && r ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;
+               background:${v.rewardOwned ? r.bg : 'rgba(255,255,255,0.04)'};
+               border:1.5px solid ${v.rewardOwned ? r.color : 'rgba(255,255,255,0.12)'};
+               border-radius:10px;padding:7px 10px;opacity:${v.rewardOwned ? '1' : '0.72'}">
+            <span style="font-size:1.5rem;line-height:1">${rewardCat.emoji}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.75rem;font-weight:700;color:${v.rewardOwned ? r.color : '#ccc'};
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                ${rewardCat.name}
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+                <span style="font-size:0.65rem;background:${r.bg};color:${r.color};
+                     border:1px solid ${r.color};border-radius:4px;padding:1px 5px;font-weight:600">
+                  ${r.name}
+                </span>
+                <span style="font-size:0.65rem;color:#aaa">💰 ${fmt(rewardCat.baseValue)}</span>
+              </div>
+            </div>
+            ${v.rewardOwned
+              ? `<span style="font-size:1rem;color:#e91e63" title="Ya obtenido">🏆</span>`
+              : `<span style="font-size:0.85rem;color:#666" title="Completa el catálogo para obtenerlo">🔒</span>`
+            }
+          </div>` : '';
+
         return `<div class="cat-card" style="${v.rewardOwned ? 'border-color:#e91e63;box-shadow:0 0 8px rgba(233,30,99,0.3)' : ''}">
-          <span class="cat-icon">${cat.icon}${v.rewardOwned ? '🏆' : ''}</span>
-          <div class="cat-name">${cat.name}</div>
-          <div class="cat-prog-bar"><div class="cat-prog-fill" style="width:${p}%;background:${cat.color}"></div></div>
-          <div class="cat-count">${v.found} / ${v.total} (${p}%)</div>
-          ${completedBadge}
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="cat-icon" style="font-size:1.4rem">${cat.icon}</span>
+            <div class="cat-name" style="flex:1">${cat.name}</div>
+            <span style="font-size:0.7rem;color:#aaa">${v.found}/${v.total}</span>
+          </div>
+          <div class="cat-prog-bar" style="margin:6px 0 2px">
+            <div class="cat-prog-fill" style="width:${p}%;background:${cat.color}"></div>
+          </div>
+          <div class="cat-count">${p}%${v.completed && !v.rewardOwned ? ' · <span style="color:#ff9800;font-weight:700">¡Completo!</span>' : ''}</div>
+          ${miniCard}
         </div>`;
       }).join('')}
     </div>
