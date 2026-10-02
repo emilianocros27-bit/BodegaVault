@@ -1,7 +1,7 @@
 // Objetos nuevos (grupo C): leyendas de la historia, el arte, la ciencia, la música y el deporte.
 // Solo objetos de alto nivel (épico, legendario, único y exótico).
 import { THREE, mat, metal, plastic, glossy, glass, emissive, C, canvasTex, labelTex, artTex, rng, add, B, RB, CY, SP, TO, CO, LA, TU, P, EX, EXS, grp, SW } from './modelkit.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // { id, name, category, rarity, baseValue, desc }
@@ -2361,5 +2361,825 @@ BUILDERS_C.servicio_te_taxco = () => {
   // tazas de porcelana
   for (const [x, z] of [[0.06, 0.1], [-0.05, 0.11]]) { lathe(g, smooth([[0, 0], [0.025, 0], [0.03, 0.004], [0.034, 0.008], [0, 0.008]], 8), C.porcelain(), x, yt, z, 0, 0, 0, 32); lathe(g, smooth([[0, 0.006], [0.018, 0.006], [0.022, 0.012], [0.03, 0.03], [0.034, 0.045], [0.031, 0.045]], 16), mat(0xf6f3ec, { roughness: 0.15, env: true, envI: 0.8, side: THREE.DoubleSide }), x, yt, z, 0, 0, 0, 32); add(g, new THREE.CircleGeometry(0.03, 24), mat(0x7a3a10, { roughness: 0.1 }), x, yt + 0.038, z, -PI / 2); }
   plaque(g, 'PLATA .925 · TAXCO', 'Maestro platero · 1958', 0.09, 0.016, 0, 0.012, 0.172, -0.3, 0);
+  return ground(g);
+};
+
+// =====================================================================
+//  LEGENDARIOS / ÚNICOS / EXÓTICOS (segunda tanda)
+// =====================================================================
+// deforma vértices con una función (v) => void
+function warpG(geo, fn) {
+  const p = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); fn(v); p.setXYZ(i, v.x, v.y, v.z); }
+  geo.computeVertexNormals();
+  return geo;
+}
+// hundimientos suaves (cuencas, fosas) — cada hueco: { c:[x,y,z], r, d, dir:[x,y,z] }
+function carve(geo, holes) {
+  return warpG(geo, (v) => {
+    for (const h of holes) {
+      const dx = v.x - h.c[0], dy = v.y - h.c[1], dz = v.z - h.c[2];
+      const dd = Math.sqrt(dx * dx + dy * dy + dz * dz) / h.r;
+      if (dd < 1) { const k = h.d * Math.pow(1 - dd * dd, 2); v.x += h.dir[0] * k; v.y += h.dir[1] * k; v.z += h.dir[2] * k; }
+    }
+  });
+}
+// elipsoide deformable
+const ellG = (sx, sy, sz, ws = 48, hs = 32) => new THREE.SphereGeometry(1, ws, hs).scale(sx, sy, sz);
+
+// ---------- Pájaro cantor autómata en jaula ----------
+BUILDERS_C.pajaro_cantor_jaula = () => {
+  const g = new THREE.Group();
+  const br = metal(0xd2a650, 0.24), brD = brassD();
+  const tortoise = mat(0xffffff, { map: canvasTex('C_carey', 256, 256, (c, w, h) => {
+    const R = rng(41); c.fillStyle = '#5a2a0c'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) { c.fillStyle = `rgba(${R() < 0.5 ? '220,150,60' : '20,8,2'},${0.2 + R() * 0.35})`; c.beginPath(); c.ellipse(R() * w, R() * h, 6 + R() * 30, 4 + R() * 14, R() * 3, 0, TAU); c.fill(); }
+  }, true), roughness: 0.15, env: true, envI: 0.8 });
+  // caja-base octagonal de carey con molduras de latón
+  const oct = []; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + PI / 8; oct.push([Math.cos(a) * 0.1, Math.sin(a) * 0.1]); }
+  EXS(g, poly(oct), 0.06, tortoise, 0, 0.035, 0, -PI / 2, PI / 8, 0, 0.003);
+  lathe(g, [[0.1, 0], [0.108, 0], [0.108, 0.008], [0.1, 0.012]], br, 0, 0, 0, 0, PI / 8, 0, 8);
+  lathe(g, [[0.096, 0.064], [0.104, 0.066], [0.104, 0.074], [0.09, 0.078], [0, 0.078]], br, 0, 0, 0, 0, PI / 8, 0, 8);
+  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + PI / 4; lathe(g, smooth([[0, 0], [0.012, 0], [0.008, -0.008], [0, -0.014]], 8), br, Math.cos(a) * 0.09, 0.006, Math.sin(a) * 0.09, 0, 0, 0, 16); }
+  // llave de cuerda y cajón musical
+  CY(g, 0.004, 0.004, 0.03, br, 0, 0.04, -0.11, PI / 2, 0, 0, 10);
+  EXS(g, sp([[-0.012, 0], [0.012, 0], [0.016, 0.014], [0, 0.022], [-0.016, 0.014]]), 0.003, br, 0, 0.034, -0.126, 0, 0, 0, 0.001);
+  plaque(g, 'GENÈVE', 'Oiseau chanteur · 1860', 0.06, 0.014, 0, 0.042, 0.0965, 0, 0);
+  // jaula de alambre en domo
+  const y0 = 0.078, Rj = 0.085, Hc = 0.16;
+  const wires = [];
+  const N = 28;
+  for (let i = 0; i < N; i++) {
+    const a = i / N * TAU, pts = [];
+    for (let k = 0; k <= 12; k++) { const t = k / 12; const r = t < 0.62 ? Rj : Rj * Math.cos((t - 0.62) / 0.38 * PI / 2); const yy = t < 0.62 ? y0 + t / 0.62 * Hc : y0 + Hc + Math.sin((t - 0.62) / 0.38 * PI / 2) * 0.07; pts.push([Math.cos(a) * Math.max(r, 0.004), yy, Math.sin(a) * Math.max(r, 0.004)]); }
+    wires.push(tubeGeo(pts, 0.0011, 24, 5));
+  }
+  for (const yy of [y0 + 0.004, y0 + 0.05, y0 + Hc]) wires.push(gx(new THREE.TorusGeometry(Rj, yy === y0 + 0.004 ? 0.003 : 0.0018, 6, 64), 0, yy, 0, PI / 2));
+  merged(g, wires, br);
+  lathe(g, smooth([[0, y0 + Hc + 0.068], [0.012, y0 + Hc + 0.072], [0.006, y0 + Hc + 0.085], [0.01, y0 + Hc + 0.095], [0, y0 + Hc + 0.11]], 16), br, 0, 0, 0, 0, 0, 0, 20);
+  TO(g, 0.012, 0.0022, br, 0, y0 + Hc + 0.12, 0, 0, 0, 0);
+  // percha y comederos
+  TU(g, [[-0.07, y0 + 0.07, 0], [0, y0 + 0.074, 0], [0.07, y0 + 0.07, 0]], 0.0028, woodM('percha', '#7a4a22'), false, 12);
+  for (const s of [-1, 1]) lathe(g, smooth([[0, 0], [0.014, 0.002], [0.016, 0.014], [0.013, 0.014]], 10), C.porcelain(0x2a5a9a), s * 0.06, y0 + 0.003, 0.03, 0, 0, 0, 20);
+  // pájaro: cuerpo, cabeza, cola y alas con plumaje iridiscente
+  const bird = grp(g, 0, y0 + 0.077, 0, 0, -0.4, 0);
+  const plum = mat(0x2a6a4a, { roughness: 0.35, metalness: 0.4, env: true, envI: 0.9 });
+  const breast = mat(0xd86a2a, { roughness: 0.6 }), headM = mat(0x1f4a8a, { roughness: 0.35, metalness: 0.4, env: true });
+  add(bird, swGeo([[-0.032, 0.012, 0], [-0.012, 0.02, 0], [0.01, 0.026, 0], [0.022, 0.034, 0]], [0.004, 0.015, 0.014, 0.008], 14, 20), plum);
+  SP(bird, 0.013, breast, 0.006, 0.019, 0, 1.2, 1, 0.95);
+  SP(bird, 0.0105, headM, 0.026, 0.042, 0, 1, 1, 0.95);
+  CO(bird, 0.0032, 0.012, gold(0.25), 0.04, 0.043, 0, 0, 0, -PI / 2 - 0.15, 10);
+  for (const s of [-1, 1]) { SP(bird, 0.0024, mat(0x050505, { roughness: 0.05, env: true }), 0.031, 0.046, s * 0.0085); add(bird, ellG(0.022, 0.006, 0.011, 16, 10), plum, -0.004, 0.026, s * 0.012, s * 0.25, 0, 0.25); }
+  for (let i = 0; i < 5; i++) add(bird, ellG(0.03, 0.0018, 0.005, 12, 6), i % 2 ? plum : headM, -0.05, 0.016 - i * 0.001, (i - 2) * 0.004, 0, (i - 2) * 0.1, 0.4);
+  for (const s of [-1, 1]) TU(bird, [[0.004, 0.006, s * 0.005], [0.002, -0.002, s * 0.005], [0.006, -0.005, s * 0.005]], 0.0011, gold(0.3), false, 8);
+  return ground(g);
+};
+
+// ---------- Antorcha olímpica México 68 ----------
+BUILDERS_C.antorcha_olimpica_1968 = () => {
+  const g = new THREE.Group();
+  const engr = canvasTex('C_mex68', 1024, 256, (c, w, h) => {
+    c.fillStyle = '#c8ccd0'; c.fillRect(0, 0, w, h);
+    const R = rng(68); for (let i = 0; i < 400; i++) { c.fillStyle = `rgba(255,255,255,${R() * 0.07})`; c.fillRect(0, R() * h, w, 1); }
+    c.strokeStyle = 'rgba(40,44,50,0.75)';
+    for (let k = 0; k < 7; k++) { c.lineWidth = 3; c.beginPath(); for (let x = 0; x <= w; x += 4) c.lineTo(x, h * 0.18 + k * 9 + Math.sin(x / w * TAU * 4 + k * 0.5) * 6); c.stroke(); } // ondas op-art del logotipo
+    c.fillStyle = 'rgba(30,34,40,0.9)'; c.font = 'bold 74px Arial'; c.textAlign = 'center';
+    c.fillText('MEXICO 68', w * 0.25, h * 0.82); c.fillText('MEXICO 68', w * 0.75, h * 0.82);
+  }, true);
+  const alum = mat(0xffffff, { map: engr, metalness: 1, roughness: 0.28 });
+  const al = metal(0xc8ccd0, 0.24), black = mat(0x1a1a1a, { roughness: 0.5 });
+  // atril de exhibición
+  const h0 = plinth(g, 0.09, 0.05, mat(0x1a1a1c, { roughness: 0.2, env: true, envI: 0.6 }), { trim: al });
+  lathe(g, [[0, h0], [0.016, h0], [0.016, h0 + 0.03], [0.012, h0 + 0.034], [0, h0 + 0.034]], al, 0, 0, 0, 0, 0, 0, 24);
+  const T = grp(g, 0, h0 + 0.02, 0);
+  // empuñadura negra estriada y cuerpo cónico grabado
+  const grip = latheGeo(smooth([[0, 0], [0.014, 0], [0.016, 0.02], [0.016, 0.16], [0.018, 0.17], [0, 0.17]], 24), 40);
+  warpG(grip, (v) => { const a = Math.atan2(v.z, v.x), r = Math.hypot(v.x, v.z); if (r > 0.012 && v.y > 0.02 && v.y < 0.16) { const k = 1 - 0.06 * Math.pow(Math.abs(Math.cos(a * 6)), 4); v.x *= k; v.z *= k; } });
+  add(T, grip, black);
+  add(T, latheGeo(smooth([[0.017, 0.168], [0.02, 0.18], [0.03, 0.26], [0.038, 0.33], [0.042, 0.37]], 32), 64, 0, TAU), mat(0xffffff, { map: engr, metalness: 1, roughness: 0.28, side: THREE.DoubleSide }));
+  lathe(T, [[0.042, 0.37], [0.05, 0.372], [0.05, 0.384], [0.044, 0.386]], al, 0, 0, 0, 0, 0, 0, 48);
+  // copa del quemador y llama
+  lathe(T, smooth([[0, 0.36], [0.03, 0.362], [0.04, 0.37], [0.042, 0.376]], 12), mat(0x2a2620, { roughness: 0.8, metalness: 0.5 }), 0, 0, 0, 0, 0, 0, 32);
+  const flameM = (c, o) => mat(c, { emissive: c, emissiveIntensity: 2.2, transparent: true, opacity: o, depthWrite: false, side: THREE.DoubleSide });
+  const flame = (r, h, m, y, tw) => { const ge = latheGeo(smooth([[0, 0], [r, h * 0.12], [r * 0.85, h * 0.4], [r * 0.4, h * 0.75], [0, h]], 20), 24); warpG(ge, (v) => { v.x += Math.sin(v.y * 40 + tw) * v.y * 0.12; v.z += Math.cos(v.y * 33 + tw) * v.y * 0.08; }); const f = add(T, ge, m, 0, y, 0); f.castShadow = false; return f; };
+  flame(0.036, 0.14, flameM(0xff6a10, 0.55), 0.372, 0);
+  flame(0.026, 0.11, flameM(0xffa82a, 0.7), 0.374, 1.3);
+  flame(0.014, 0.07, flameM(0xfff0a0, 0.9), 0.376, 2.1);
+  const L = new THREE.PointLight(0xffa040, 0.6, 0.8); L.position.set(0, 0.45, 0); T.add(L);
+  plaque(g, 'XIX OLIMPIADA', 'Ciudad de México · 1968', 0.08, 0.016, 0, h0 * 0.55, 0.0835, 0, 0);
+  return ground(g);
+};
+
+// ---------- Violín de Cremona 1716 ----------
+function violinOutline(s = 1) {
+  // medio contorno (x>=0), de la base (y=0) a la punta superior (y=0.356)
+  const half = [[0, 0], [0.06, 0.006], [0.098, 0.03], [0.104, 0.07], [0.094, 0.12], [0.074, 0.15], [0.07, 0.17], [0.078, 0.2], [0.084, 0.245], [0.074, 0.3], [0.05, 0.34], [0, 0.356]];
+  const pts = smooth(half.map(([x, y]) => [x * s, y * s]), 60);
+  const all = [...pts, ...pts.slice(1, -1).reverse().map(([x, y]) => [-x, y])];
+  return poly(all);
+}
+BUILDERS_C.violin_cremona_1716 = () => {
+  const g = new THREE.Group();
+  const flamed = mat(0xffffff, { map: grainTex('cremona_arce2', '#7a2e0c', { flame: 2.2, lines: 30, w: 256, h: 512 }), roughness: 0.18, env: true, envI: 1.0 });
+  const spruce = mat(0xffffff, { map: grainTex('cremona_abeto2', '#9a4a14', { lines: 170 }), roughness: 0.2, env: true, envI: 0.9 });
+  const ebony = mat(0x0e0b09, { roughness: 0.25, env: true, envI: 0.6 });
+  // atril: base con cuna acolchada y apoyo trasero (no atraviesa el instrumento)
+  const stand = woodM('atril_v', '#3a1e0e', { rough: 0.4 });
+  RB(g, 0.3, 0.025, 0.2, 0.006, stand, 0, 0.0125, 0);
+  RB(g, 0.16, 0.022, 0.03, 0.006, mat(0xffffff, { map: velvetTex('atril_v', '#5a0f1c'), roughness: 1 }), 0, 0.034, 0.055);
+  TU(g, [[0, 0.025, -0.06], [0, 0.09, -0.1], [0, 0.135, -0.118]], 0.006, stand, false, 12);
+  SP(g, 0.012, mat(0xffffff, { map: velvetTex('atril_v', '#5a0f1c'), roughness: 1 }), 0, 0.138, -0.12, 1.4, 0.6, 1, 12);
+  const V = grp(g, 0, 0.12, -0.02, -1.05, 0, 0);
+  // tapa, fondo y aros (y=0 en la base del cuerpo)
+  const sh = violinOutline();
+  EXS(V, sh, 0.004, flamed, 0, -0.18, -0.02, 0, 0, 0, 0.0015);
+  const ribs = EXS(V, sh, 0.03, flamed, 0, -0.18, 0, 0, 0, 0, 0.0005); ribs.scale.set(0.985, 0.992, 1);
+  const topGeo = new THREE.ExtrudeGeometry(sh, { depth: 0.004, bevelEnabled: true, bevelSize: 0.0015, bevelThickness: 0.0015, bevelSegments: 2, curveSegments: 24 });
+  warpG(topGeo, (v) => { const ex = 1 - Math.pow(v.x / 0.1, 2), ey = Math.sin(Math.max(0, Math.min(1, v.y / 0.356)) * PI); v.z += Math.max(0, ex) * ey * 0.012; });
+  add(V, topGeo, spruce, 0, -0.18, 0.016);
+  // filete (purfling) negro siguiendo el borde
+  const pur = smooth([[0, 0.006], [0.056, 0.012], [0.091, 0.034], [0.097, 0.07], [0.087, 0.118], [0.067, 0.148], [0.063, 0.17], [0.071, 0.2], [0.077, 0.245], [0.067, 0.296], [0.045, 0.333], [0, 0.348]], 60);
+  const purAll = [...pur, ...pur.slice(1, -1).reverse().map(([x, y]) => [-x, y])].map(([x, y]) => { const ex = 1 - Math.pow(x / 0.1, 2), ey = Math.sin(Math.max(0, Math.min(1, y / 0.356)) * PI); return [x, y - 0.18, 0.0215 + Math.max(0, ex) * ey * 0.012]; });
+  TU(V, purAll, 0.0006, mat(0x140a04, { roughness: 0.4 }), true, 240);
+  // aberturas en f
+  const fTex = canvasTex('C_fhole', 64, 256, (c, w, h) => { c.clearRect(0, 0, w, h); c.fillStyle = '#0a0604'; c.beginPath(); c.arc(w * 0.5, h * 0.12, 9, 0, TAU); c.arc(w * 0.5, h * 0.88, 9, 0, TAU); c.fill(); c.lineWidth = 7; c.strokeStyle = '#0a0604'; c.beginPath(); c.moveTo(w * 0.5, h * 0.12); c.bezierCurveTo(w * 0.1, h * 0.35, w * 0.9, h * 0.65, w * 0.5, h * 0.88); c.stroke(); c.fillRect(w * 0.2, h * 0.49, w * 0.6, 5); });
+  for (const s of [-1, 1]) P(V, 0.016, 0.068, fTex, s * 0.036, -0.18 + 0.165, 0.0335, 0.08 * s, 0, s * 0.12, { transparent: true, alphaTest: 0.4 });
+  // mástil, diapasón, voluta y clavijas
+  add(V, swGeo([[0, 0.17, 0.02], [0, 0.26, 0.022], [0, 0.31, 0.02]], [0.011, 0.01, 0.009], 12, 16, 0.8), flamed);
+  RB(V, 0.026, 0.27, 0.007, 0.002, ebony, 0, 0.1, 0.036, -0.06, 0, 0);
+  RB(V, 0.024, 0.06, 0.018, 0.004, flamed, 0, 0.335, 0.02);
+  const scroll = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = t * TAU * 1.6, r = 0.016 * (1 - t * 0.6); scroll.push([0, 0.372 + Math.sin(a) * r, 0.02 + Math.cos(a) * r]); }
+  add(V, swGeo(scroll, (t) => 0.007 * (1 - t * 0.5), 10, 60, 1.4), flamed);
+  for (let i = 0; i < 4; i++) { const s = i % 2 ? 1 : -1, y = 0.315 + Math.floor(i / 2) * 0.022 + (s > 0 ? 0.011 : 0); CY(V, 0.0035, 0.0045, 0.04, ebony, s * 0.022, y, 0.022, 0, 0, PI / 2, 12); SP(V, 0.007, ebony, s * 0.045, y, 0.022, 0.5, 1, 1, 12); }
+  // puente, cordal, botón y barbada
+  EXS(V, sp([[-0.02, 0], [0.02, 0], [0.018, 0.012], [0.008, 0.02], [-0.008, 0.02], [-0.018, 0.012]]), 0.003, mat(0xe0c08a, { roughness: 0.6 }), 0, -0.07, 0.048, PI / 2 - 0.5, 0, 0, 0.0005);
+  EXS(V, sp([[-0.012, 0], [0.012, 0], [0.02, 0.07], [0, 0.076], [-0.02, 0.07]]), 0.005, ebony, 0, -0.178, 0.04, -0.12, 0, 0, 0.001);
+  SP(V, 0.005, ebony, 0, -0.184, 0.012, 1, 1, 0.8, 12);
+  add(V, ellG(0.024, 0.005, 0.018, 20, 10), ebony, -0.04, -0.162, 0.034, PI / 2 - 0.1, 0, 0);
+  // cuerdas
+  const strings = [];
+  for (let i = 0; i < 4; i++) { const x = (i - 1.5) * 0.0055; strings.push(tubeGeo([[x * 1.3, -0.12, 0.042], [x, -0.07, 0.05], [x * 0.7, 0.23, 0.041], [x * 0.6, 0.235, 0.038]], 0.0004 + i * 0.00012, 4, 4)); }
+  merged(V, strings, metal(0xd8d0c0, 0.25));
+  plaque(g, 'CREMONA · 1716', 'Antonius Stradivarius faciebat', 0.09, 0.015, 0, 0.0125, 0.1005, 0, 0);
+  return ground(g);
+};
+
+// ---------- Máscara funeraria de jade maya ----------
+BUILDERS_C.mascara_jade_maya = () => {
+  const g = new THREE.Group();
+  const jadeT = canvasTex('C_jade_mosaico2', 1024, 1024, (c, w, h) => {
+    const R = rng(615); c.fillStyle = '#081e14'; c.fillRect(0, 0, w, h);
+    for (let y = 0; y < h;) { const th = 14 + R() * 12; for (let x = -R() * 20; x < w;) { const tw = 12 + R() * 20, gg = 100 + R() * 80; c.fillStyle = `rgb(${25 + R() * 35},${gg},${55 + R() * 45})`; c.beginPath(); c.moveTo(x + 1.5 + R() * 2, y + 1.5); c.lineTo(x + tw - 1.5, y + 1.5 + R() * 2); c.lineTo(x + tw - 1.5 - R() * 2, y + th - 1.5); c.lineTo(x + 1.5, y + th - 1.5 - R() * 2); c.fill(); c.fillStyle = 'rgba(255,255,255,0.14)'; c.fillRect(x + 3, y + 3, tw * 0.3, 1.5); x += tw; } y += th; }
+  });
+  const jade = mat(0xffffff, { map: jadeT, roughness: 0.2, env: true, envI: 1.0 });
+  // cara: cascarón frontal (sin parte trasera), mentón afilado, nariz, cejas, labios, pómulos
+  const face = new THREE.SphereGeometry(1, 72, 56, 0, PI, 0, PI);
+  face.scale(0.075, 0.1, 0.045);
+  warpG(face, (v) => {
+    const ty = -v.y / 0.1; // 1 = mentón
+    if (ty > 0) { const k = 1 - Math.pow(ty, 2) * 0.42; v.x *= k; }
+    if (v.y > 0.06) v.z *= 1 - (v.y - 0.06) * 6; // frente que se inclina
+  });
+  carve(face, [
+    { c: [-0.028, 0.022, 0.04], r: 0.022, d: 0.01, dir: [0, 0, -1] }, { c: [0.028, 0.022, 0.04], r: 0.022, d: 0.01, dir: [0, 0, -1] },
+    { c: [0, 0.0, 0.045], r: 0.024, d: 0.024, dir: [0, -0.15, 1] }, // nariz
+    { c: [-0.028, 0.044, 0.042], r: 0.02, d: 0.005, dir: [0, 0, 1] }, { c: [0.028, 0.044, 0.042], r: 0.02, d: 0.005, dir: [0, 0, 1] }, // cejas
+    { c: [0, -0.045, 0.043], r: 0.026, d: 0.012, dir: [0, 0, 1] }, // labios
+    { c: [-0.05, -0.012, 0.03], r: 0.025, d: 0.006, dir: [0, 0, 1] }, { c: [0.05, -0.012, 0.03], r: 0.025, d: 0.006, dir: [0, 0, 1] }, // pómulos
+  ]);
+  const F = grp(g, 0, 0.175, 0.0, -0.05, 0, 0);
+  add(F, face, mat(0xffffff, { map: jadeT, roughness: 0.2, env: true, envI: 1.0, side: THREE.DoubleSide }));
+  // ojos de concha con pupilas de obsidiana (almendrados)
+  const shell = mat(0xf2ede0, { roughness: 0.3, env: true, envI: 0.6 }), obs = mat(0x050506, { roughness: 0.05, env: true, envI: 1.2 });
+  for (const s of [-1, 1]) { add(F, ellG(0.016, 0.0055, 0.003, 24, 12), shell, s * 0.028, 0.022, 0.0335, 0, 0, s * -0.12); SP(F, 0.004, obs, s * 0.028, 0.022, 0.0362, 1, 1, 0.4, 16); }
+  // boca entreabierta con dientes en T (marca del dios solar)
+  add(F, ellG(0.017, 0.004, 0.003, 20, 10), mat(0x3a120a, { roughness: 0.8 }), 0, -0.047, 0.0565);
+  B(F, 0.005, 0.005, 0.002, shell, 0, -0.047, 0.059); B(F, 0.011, 0.002, 0.002, shell, 0, -0.0445, 0.059);
+  // orejeras circulares de jade con perno de concha
+  for (const s of [-1, 1]) { const ear = grp(F, s * 0.072, 0.0, 0.0, 0, s * PI / 2, 0); lathe(ear, smooth([[0, 0], [0.02, 0.0], [0.022, 0.005], [0.012, 0.007], [0.006, 0.011], [0, 0.011]], 14), jade, 0, 0, 0, PI / 2, 0, 0, 32); SP(ear, 0.005, shell, 0, 0, 0.012, 1, 1, 0.6, 12); }
+  // soporte de metal y base de piedra
+  B(g, 0.006, 0.11, 0.006, metal(0x2a2a2a, 0.4), 0, 0.095, -0.012);
+  const basalt = mat(0xffffff, { map: stoneTex('basalto_maya', [52, 50, 48]), roughness: 0.75 });
+  RB(g, 0.2, 0.04, 0.14, 0.006, basalt, 0, 0.02, 0);
+  plaque(g, 'PALENQUE', 'Templo de las Inscripciones · réplica', 0.09, 0.016, 0, 0.022, 0.0705, 0, 0);
+  return ground(g);
+};
+
+// ---------- Códice mexica plegado ----------
+BUILDERS_C.codice_mexica = () => {
+  const g = new THREE.Group();
+  const signs = ['cipactli', 'ehecatl', 'calli', 'cuetzpalin', 'coatl', 'miquiztli', 'mazatl', 'tochtli'];
+  const pageTex = (i) => canvasTex('C_codex_' + i, 256, 384, (c, w, h) => {
+    const R = rng(900 + i * 7); c.fillStyle = '#f0e6cc'; c.fillRect(0, 0, w, h);
+    for (let k = 0; k < 900; k++) { c.fillStyle = `rgba(120,90,40,${R() * 0.1})`; c.fillRect(R() * w, R() * h, 2, 2); }
+    c.strokeStyle = '#b8261a'; c.lineWidth = 6; c.strokeRect(10, 10, w - 20, h - 20);
+    c.beginPath(); c.moveTo(10, h * 0.5); c.lineTo(w - 10, h * 0.5); c.stroke();
+    const cols = ['#b8261a', '#1f6a8a', '#e0a42a', '#2a7a3a', '#1a1410'];
+    for (let half = 0; half < 2; half++) {
+      const cy = h * (0.25 + half * 0.5), cx = w / 2;
+      // figura glífica: cabeza de perfil estilizada con tocado y ojo
+      c.fillStyle = cols[(i + half) % 4]; c.strokeStyle = '#1a1410'; c.lineWidth = 4;
+      c.beginPath(); c.ellipse(cx, cy, 52, 46, 0, 0, TAU); c.fill(); c.stroke();
+      c.fillStyle = '#f0e6cc'; c.beginPath(); c.ellipse(cx + 12, cy - 8, 14, 10, 0, 0, TAU); c.fill(); c.stroke();
+      c.fillStyle = '#1a1410'; c.beginPath(); c.arc(cx + 14, cy - 8, 5, 0, TAU); c.fill();
+      c.fillStyle = cols[(i + half + 2) % 4]; c.beginPath(); c.moveTo(cx - 50, cy - 30); for (let f = 0; f < 5; f++) { c.lineTo(cx - 40 + f * 20, cy - 70 - R() * 15); c.lineTo(cx - 30 + f * 20, cy - 40); } c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = '#f0e6cc'; c.fillRect(cx + 20, cy + 14, 30, 12); c.strokeRect(cx + 20, cy + 14, 30, 12);
+      // puntos de numeral
+      c.fillStyle = cols[(i + half + 1) % 4];
+      const n = 1 + ((i * 2 + half) % 13); for (let d = 0; d < Math.min(n, 7); d++) { c.beginPath(); c.arc(28 + d * 30, cy + 70, 9, 0, TAU); c.fill(); c.stroke(); }
+      c.font = 'italic 14px Georgia'; c.fillStyle = 'rgba(26,20,16,0.5)'; c.fillText(signs[(i * 2 + half) % 8], 20, cy - 60);
+    }
+  });
+  const skinBack = mat(0xc8a878, { roughness: 0.9 });
+  const n = 8, pw = 0.09, ph = 0.13, ang = 0.55;
+  // base de exhibición
+  RB(g, 0.7, 0.03, 0.22, 0.006, woodM('codice_base', '#2a1408', { rx: 2 }), 0, 0.015, 0);
+  RB(g, 0.68, 0.004, 0.2, 0.002, mat(0xffffff, { map: velvetTex('codice', '#1a1a1a'), roughness: 1 }), 0, 0.032, 0);
+  const x0 = -(n * pw * Math.cos(ang)) / 2;
+  for (let i = 0; i < n; i++) {
+    const dir = i % 2 ? -1 : 1, cx = x0 + (i + 0.5) * pw * Math.cos(ang), cz = dir * pw * Math.sin(ang) / 2 * 0 ;
+    const ry = dir * ang;
+    const pg = grp(g, cx, 0.034 + ph / 2, (i % 2 ? 1 : -1) * pw * Math.sin(ang) * 0.25 + cz, 0, ry, 0);
+    RB(pg, pw, ph, 0.003, 0.0008, skinBack, 0, 0, 0);
+    P(pg, pw * 0.98, ph * 0.98, pageTex(i), 0, 0, 0.0017, 0, 0, 0, { rough: 0.85 });
+    P(pg, pw * 0.98, ph * 0.98, pageTex(i + n), 0, 0, -0.0017, 0, PI, 0, { rough: 0.85 });
+  }
+  // tablillas de las tapas
+  for (const s of [-1, 1]) RB(g, 0.012, ph + 0.01, 0.06, 0.002, woodM('codice_tapa', '#6a3a1a'), s * (Math.abs(x0) + 0.01), 0.034 + ph / 2, 0, 0, s * 0.3, 0);
+  plaque(g, 'CÓDICE TONALPOHUALLI', 'Piel de venado estucada', 0.12, 0.016, 0, 0.016, 0.1105, 0, 0);
+  return ground(g);
+};
+
+// ---------- Penacho de plumas de quetzal ----------
+BUILDERS_C.penacho_quetzal = () => {
+  const g = new THREE.Group();
+  const featherTex = (key, col, tip) => canvasTex('C_pluma_' + key, 64, 512, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    const gr = c.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, col[0]); gr.addColorStop(0.7, col[1]); gr.addColorStop(1, tip);
+    c.fillStyle = gr; c.beginPath(); c.moveTo(w / 2, 0); c.bezierCurveTo(w * 1.05, h * 0.2, w * 0.95, h * 0.85, w / 2, h); c.bezierCurveTo(w * 0.05, h * 0.85, -w * 0.05, h * 0.2, w / 2, 0); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 1; for (let y = 8; y < h; y += 5) { c.beginPath(); c.moveTo(w / 2, y); c.lineTo(4, y - 10); c.moveTo(w / 2, y); c.lineTo(w - 4, y - 10); c.stroke(); }
+    c.strokeStyle = 'rgba(240,230,200,0.8)'; c.lineWidth = 2; c.beginPath(); c.moveTo(w / 2, 4); c.lineTo(w / 2, h); c.stroke();
+  });
+  const fm = (key, col, tip) => mat(0xffffff, { map: featherTex(key, col, tip), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.4, metalness: 0.25, env: true, envI: 0.7 });
+  const quetzal = fm('q', ['#0a4a2a', '#1aa05a'], '#5ad0a0'), cotinga = fm('c', ['#0a3a8a', '#2a7ad8'], '#8ad0ff'), guac = fm('g', ['#a01a10', '#e8401a'], '#f8c040'), brown = fm('b', ['#5a3a1a', '#8a6a3a'], '#c8a870');
+  // pluma curvada (cinta) — longitud L, ancho W
+  const feather = (parent, L, W, m, a, bend) => {
+    const ge = new THREE.PlaneGeometry(W, L, 1, 12); ge.translate(0, L / 2, 0);
+    warpG(ge, (v) => { const t = v.y / L; v.z -= Math.pow(t, 2) * bend; });
+    const f = add(parent, ge, m, 0, 0, 0, 0, 0, a); f.castShadow = false; return f;
+  };
+  const C0 = new THREE.Vector3(0, 0.28, 0);
+  // armazón: tablero semicircular
+  const P0 = grp(g, 0, C0.y, 0);
+  const rows = [[0.75, 0.055, quetzal, 31, 0.12, 0.004], [0.52, 0.04, cotinga, 27, 0.06, 0.008], [0.4, 0.04, guac, 23, 0.04, 0.012], [0.28, 0.035, brown, 19, 0.02, 0.016]];
+  for (const [L, W, m, n, bend, dz] of rows) for (let i = 0; i < n; i++) { const a = -PI * 0.47 + i / (n - 1) * PI * 0.94; const pf = grp(P0, -Math.sin(a) * 0.05, Math.cos(a) * 0.05, dz); feather(pf, L, W, m, a, bend); }
+  // placas de oro (media luna y discos)
+  const gd = goldD();
+  const band = new THREE.Shape(); band.absarc(0, 0, 0.13, 0.05, PI - 0.05, false); band.absarc(0, 0, 0.1, PI - 0.05, 0.05, true);
+  EXS(P0, band, 0.003, gold(0.2), 0, 0.0, 0.022, 0, 0, 0, 0.001);
+  for (let i = 0; i < 9; i++) { const a = 0.15 + i / 8 * (PI - 0.3); lathe(P0, smooth([[0, 0], [0.011, 0], [0.008, 0.004], [0, 0.005]], 8), gd, Math.cos(a) * 0.115, Math.sin(a) * 0.115, 0.026, PI / 2, 0, 0, 24); }
+  const band2 = new THREE.Shape(); band2.absarc(0, 0, 0.06, 0, PI, false); band2.absarc(0, 0, 0.04, PI, 0, true);
+  EXS(P0, band2, 0.004, gold(0.2), 0, 0.0, 0.026, 0, 0, 0, 0.001);
+  // atril de madera con travesaño
+  const wd = woodM('penacho_atril', '#2a160a', { rough: 0.45 });
+  RB(g, 0.5, 0.03, 0.18, 0.006, wd, 0, 0.015, 0);
+  B(g, 0.02, C0.y, 0.02, wd, 0, C0.y / 2 + 0.02, -0.04);
+  TU(g, [[-0.12, 0.03, 0.04], [-0.02, 0.18, -0.03], [0, C0.y - 0.02, -0.035]], 0.006, wd, false, 10);
+  TU(g, [[0.12, 0.03, 0.04], [0.02, 0.18, -0.03], [0, C0.y - 0.02, -0.035]], 0.006, wd, false, 10);
+  plaque(g, 'PENACHO · AMANTECAS', 'Plumas de quetzal y oro · réplica', 0.12, 0.016, 0, 0.016, 0.0905, 0, 0);
+  return ground(g);
+};
+
+// ---------- Piedra del Sol de oro ----------
+function sunStoneTex(key, base = '#d8a840', ink = 'rgba(80,45,5,0.85)') {
+  return canvasTex('C_sunstone_' + key, 1024, 1024, (c, w, h) => {
+    const R = rng(1479); const cx = w / 2, cy = h / 2;
+    c.fillStyle = base; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 600; i++) { c.fillStyle = `rgba(255,255,255,${R() * 0.05})`; c.fillRect(R() * w, R() * h, 2, 2); }
+    c.strokeStyle = ink; c.fillStyle = ink;
+    const ring = (r, lw = 4) => { c.lineWidth = lw; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.stroke(); };
+    // rostro central (Tonatiuh)
+    ring(80, 6); c.beginPath(); c.ellipse(cx - 28, cy - 18, 14, 9, 0, 0, TAU); c.ellipse(cx + 28, cy - 18, 14, 9, 0, 0, TAU); c.stroke();
+    c.beginPath(); c.moveTo(cx - 25, cy + 30); c.quadraticCurveTo(cx, cy + 45, cx + 25, cy + 30); c.stroke();
+    c.beginPath(); c.moveTo(cx - 8, cy + 38); c.lineTo(cx, cy + 75); c.lineTo(cx + 8, cy + 38); c.stroke(); // lengua de pedernal
+    // cuatro soles (Nahui Ollin)
+    for (let k = 0; k < 4; k++) { const a = PI / 4 + k * PI / 2; c.lineWidth = 5; c.strokeRect(cx + Math.cos(a) * 125 - 35, cy + Math.sin(a) * 125 - 35, 70, 70); c.beginPath(); c.arc(cx + Math.cos(a) * 125, cy + Math.sin(a) * 125, 16, 0, TAU); c.stroke(); }
+    ring(180, 6);
+    // 20 signos de los días
+    for (let k = 0; k < 20; k++) { const a = k / 20 * TAU; c.save(); c.translate(cx + Math.cos(a) * 210, cy + Math.sin(a) * 210); c.rotate(a + PI / 2); c.lineWidth = 3; c.strokeRect(-22, -22, 44, 44); c.beginPath(); if (k % 4 === 0) c.arc(0, 0, 12, 0, TAU); else if (k % 4 === 1) { c.moveTo(-12, 10); c.lineTo(0, -12); c.lineTo(12, 10); c.closePath(); } else if (k % 4 === 2) { c.ellipse(0, 0, 14, 7, 0, 0, TAU); c.moveTo(-6, -12); c.lineTo(-6, 12); } else { c.moveTo(-12, -12); c.quadraticCurveTo(14, 0, -12, 12); } c.stroke(); c.restore(); }
+    ring(240, 6);
+    // rayos solares y quincunces
+    for (let k = 0; k < 40; k++) { const a = k / 40 * TAU; c.beginPath(); c.arc(cx + Math.cos(a) * 262, cy + Math.sin(a) * 262, 8, 0, TAU); c.stroke(); }
+    ring(282, 4);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; c.beginPath(); c.moveTo(cx + Math.cos(a - 0.12) * 285, cy + Math.sin(a - 0.12) * 285); c.lineTo(cx + Math.cos(a) * 360, cy + Math.sin(a) * 360); c.lineTo(cx + Math.cos(a + 0.12) * 285, cy + Math.sin(a + 0.12) * 285); c.lineWidth = 5; c.stroke(); }
+    ring(372, 6);
+    // serpientes de fuego (Xiuhcóatl) en el anillo exterior
+    for (let k = 0; k < 2; k++) for (let s = 0; s < 22; s++) { const a = PI / 2 + (k ? 1 : -1) * (0.15 + s / 22 * (PI - 0.3)); c.save(); c.translate(cx + Math.cos(a) * 430, cy + Math.sin(a) * 430); c.rotate(a); c.lineWidth = 3; c.strokeRect(-30, -18, 60, 36); c.beginPath(); c.moveTo(-30, 0); c.lineTo(30, 0); c.stroke(); c.restore(); }
+    ring(492, 8);
+  });
+}
+BUILDERS_C.piedra_sol_oro = () => {
+  const g = new THREE.Group();
+  const obs = mat(0x08080a, { roughness: 0.06, env: true, envI: 1.3 });
+  // atril de obsidiana: base y dos brazos curvos
+  RB(g, 0.34, 0.035, 0.16, 0.008, obs, 0, 0.0175, 0);
+  for (const s of [-1, 1]) add(g, swGeo([[s * 0.1, 0.03, -0.02], [s * 0.15, 0.1, -0.035], [s * 0.13, 0.2, -0.04]], [0.014, 0.012, 0.008], 10, 16), obs);
+  B(g, 0.22, 0.02, 0.05, obs, 0, 0.045, 0.0);
+  const t = sunStoneTex('oro');
+  const goldFace = mat(0xffffff, { map: t, metalness: 1, roughness: 0.25, bumpMap: t, bumpScale: 0.004 });
+  const D = grp(g, 0, 0.19, -0.01, -0.12, 0, 0);
+  CY(D, 0.14, 0.14, 0.022, gold(0.22), 0, 0, 0, PI / 2, 0, 0, 96);
+  add(D, new THREE.CircleGeometry(0.139, 96), goldFace, 0, 0, 0.0112);
+  TO(D, 0.14, 0.004, gold(0.18), 0, 0, 0.008, 0, 0, 0, TAU, 96);
+  // rostro en relieve
+  lathe(D, smooth([[0, 0.014], [0.018, 0.012], [0.022, 0.0]], 10), gold(0.18), 0, 0, 0.011, PI / 2, 0, 0, 32);
+  plaque(g, 'CUAUHXICALLI', 'Calendario mexica · oro de ley', 0.1, 0.016, 0, 0.018, 0.0805, 0, 0);
+  return ground(g);
+};
+
+// ---------- Reloj astronómico gótico ----------
+BUILDERS_C.reloj_astronomico = () => {
+  const g = new THREE.Group();
+  const stoneM = mat(0xffffff, { map: stoneTex('gotico', [110, 104, 96], { veins: 2 }), roughness: 0.7 });
+  const gl = gold(0.2), blue = mat(0x1a2a5a, { roughness: 0.4, env: true, envI: 0.5 });
+  const dialT = canvasTex('C_astrodial', 1024, 1024, (c, w, h) => {
+    const cx = w / 2, cy = h / 2; c.fillStyle = '#16244a'; c.fillRect(0, 0, w, h);
+    const sky = c.createRadialGradient(cx, cy, 50, cx, cy, 420); sky.addColorStop(0, '#2a5aa8'); sky.addColorStop(0.55, '#1a2e66'); sky.addColorStop(0.56, '#1a1410'); sky.addColorStop(1, '#3a1a0a');
+    c.fillStyle = sky; c.beginPath(); c.arc(cx, cy, 420, 0, TAU); c.fill();
+    c.strokeStyle = '#e0b04a'; c.fillStyle = '#e0b04a';
+    c.lineWidth = 16; c.beginPath(); c.arc(cx, cy, 470, 0, TAU); c.stroke();
+    c.font = 'bold 54px Georgia'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const rom = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+    for (let k = 0; k < 24; k++) { const a = k / 24 * TAU - PI / 2; c.save(); c.translate(cx + Math.cos(a) * 470, cy + Math.sin(a) * 470); c.rotate(a + PI / 2); c.fillStyle = '#1a1410'; c.fillText(rom[k % 12], 0, 0); c.restore(); }
+    c.lineWidth = 4; c.beginPath(); c.arc(cx, cy, 250, 0, TAU); c.stroke();
+    // anillo zodiacal excéntrico
+    const zx = cx, zy = cy - 70; c.lineWidth = 50; c.strokeStyle = 'rgba(224,176,74,0.95)'; c.beginPath(); c.arc(zx, zy, 300, 0, TAU); c.stroke();
+    const zod = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+    c.fillStyle = '#16244a'; c.font = 'bold 34px serif';
+    for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; c.fillText(zod[k], zx + Math.cos(a) * 300, zy + Math.sin(a) * 300); c.fillRect(zx + Math.cos(a + 0.26) * 278, zy + Math.sin(a + 0.26) * 278, 3, 3); }
+    c.strokeStyle = '#e0b04a'; c.lineWidth = 3; for (const r of [170, 340]) { c.beginPath(); c.arc(cx, cy + 40, r, PI * 1.1, PI * 1.9); c.stroke(); }
+    for (let i = 0; i < 80; i++) { c.fillStyle = 'rgba(255,240,200,0.7)'; c.fillRect(cx - 380 + Math.random() * 760, cy - 300 + Math.random() * 300, 2, 2); }
+  });
+  // torre: zócalo, cuerpo, pináculos
+  RB(g, 0.3, 0.05, 0.2, 0.006, stoneM, 0, 0.025, 0);
+  RB(g, 0.26, 0.42, 0.16, 0.004, stoneM, 0, 0.26, 0);
+  RB(g, 0.28, 0.025, 0.18, 0.004, stoneM, 0, 0.475, 0);
+  // esfera
+  const yD = 0.3;
+  CY(g, 0.1, 0.1, 0.01, gl, 0, yD, 0.082, PI / 2, 0, 0, 64);
+  add(g, new THREE.CircleGeometry(0.096, 96), mat(0xffffff, { map: dialT, roughness: 0.35, env: true, envI: 0.5 }), 0, yD, 0.0876);
+  TO(g, 0.098, 0.004, gl, 0, yD, 0.088, 0, 0, 0, TAU, 96);
+  // manecillas: sol y luna
+  const hand = (len, a, tip) => { const hg = grp(g, 0, yD, 0.09, 0, 0, a); B(hg, 0.004, len, 0.002, gl, 0, len / 2, 0); tip(hg, len); };
+  hand(0.085, 0.6, (hg, L) => { SP(hg, 0.008, emissive(0xffc040, 0.6), 0, L * 0.7, 0.002, 1, 1, 0.4, 16); for (let i = 0; i < 8; i++) CO(hg, 0.0025, 0.007, gl, Math.cos(i / 8 * TAU) * 0.011, L * 0.7 + Math.sin(i / 8 * TAU) * 0.011, 0.002, 0, 0, i / 8 * TAU - PI / 2, 6); });
+  hand(0.07, -1.9, (hg, L) => { SP(hg, 0.007, metal(0xd8dce0, 0.2), 0, L * 0.8, 0.002, 1, 1, 0.4, 16); SP(hg, 0.0072, mat(0x14141a, { roughness: 0.5 }), 0.003, L * 0.8, 0.0024, 1, 1, 0.4, 16); });
+  SP(g, 0.007, gl, 0, yD, 0.092, 1, 1, 0.5, 12);
+  // calendario perpetuo inferior
+  add(g, new THREE.CircleGeometry(0.05, 64), mat(0xffffff, { map: sunStoneTex('calrel', '#e0d4b0', 'rgba(26,36,74,0.8)'), roughness: 0.5 }), 0, 0.12, 0.081);
+  TO(g, 0.05, 0.003, gl, 0, 0.12, 0.082, 0, 0, 0, TAU, 64);
+  // arcos góticos laterales con vitrales
+  const arch = new THREE.Shape(); arch.moveTo(-0.022, 0); arch.lineTo(0.022, 0); arch.lineTo(0.022, 0.08); arch.quadraticCurveTo(0.022, 0.11, 0, 0.13); arch.quadraticCurveTo(-0.022, 0.11, -0.022, 0.08); arch.closePath();
+  for (const s of [-1, 1]) { EXS(g, arch, 0.004, gl, s * 0.1, 0.07, 0.081, 0, 0, 0, 0.001); add(g, new THREE.ShapeGeometry(arch), mat(0x8a1a2a, { emissive: 0x5a0a1a, emissiveIntensity: 0.4, roughness: 0.2 }), s * 0.1, 0.075, 0.0835).scale.set(0.8, 0.85, 1); }
+  // pináculos dorados y aguja central
+  const pin = (x, z, h, r) => { lathe(g, [[0, 0], [r, 0], [r, h * 0.3], [r * 1.2, h * 0.32], [r * 0.8, h * 0.36], [0.0001, h]], gl, x, 0.487, z, 0, 0, 0, 8); for (let k = 0; k < 4; k++) SP(g, r * 0.3, gl, x + Math.cos(k * PI / 2) * r * 0.7, 0.487 + h * 0.55 + k * h * 0.08, z + Math.sin(k * PI / 2) * r * 0.7, 1, 1, 1, 6); };
+  for (const [x, z] of [[-0.12, 0.07], [0.12, 0.07], [-0.12, -0.07], [0.12, -0.07]]) pin(x, z, 0.12, 0.012);
+  lathe(g, [[0, 0], [0.05, 0], [0.05, 0.04], [0.035, 0.05], [0.0001, 0.2]], blue, 0, 0.487, 0, 0, 0, 0, 8);
+  for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; TU(g, [[Math.cos(a) * 0.05, 0.53, Math.sin(a) * 0.05], [Math.cos(a) * 0.03, 0.6, Math.sin(a) * 0.03], [0, 0.687, 0]], 0.0016, gl, false, 10); }
+  SP(g, 0.009, gl, 0, 0.69, 0); CO(g, 0.004, 0.03, gl, 0, 0.71, 0, 0, 0, 0, 6);
+  plaque(g, 'HOROLOGIUM', 'Astronomicum · Praga', 0.1, 0.016, 0, 0.025, 0.1005, 0, 0);
+  return ground(g);
+};
+
+// ---------- Autómata escritor suizo ----------
+BUILDERS_C.automata_escritor = () => {
+  const g = new THREE.Group();
+  const mah = woodM('escritor_caoba', '#5a2410', { rough: 0.3 });
+  const coat = mat(0xffffff, { map: velvetTex('escritor_saco', '#2a3a6a'), roughness: 0.85 });
+  const skin = mat(0xf2d8c0, { roughness: 0.35, env: true, envI: 0.4 }), br = metal(0xd2a650, 0.24);
+  // escritorio de caoba con patas cabriolé
+  RB(g, 0.36, 0.022, 0.22, 0.004, mah, 0, 0.21, 0.1);
+  for (const [x, z] of [[-0.16, 0.01], [0.16, 0.01], [-0.16, 0.19], [0.16, 0.19]]) add(g, swGeo([[x, 0.2, z], [x * 1.04, 0.13, z + (z > 0.1 ? 0.01 : -0.01)], [x, 0.04, z], [x * 1.06, 0.004, z + (z > 0.1 ? 0.01 : -0.01)]], [0.01, 0.008, 0.006, 0.008], 10, 16), mah);
+  // papel, tintero y pluma de ganso
+  P(g, 0.12, 0.16, parchmentTex('carta', { draw: (c, w, h) => { c.fillStyle = 'rgba(30,20,10,0.85)'; c.font = 'italic 40px Georgia'; ['Je pense,', 'donc je suis.', '', 'Jaquet-Droz', '1774'].forEach((t, i) => c.fillText(t, 40, 90 + i * 70)); } }), 0.02, 0.2215, 0.13, -PI / 2, 0, 0.1, { rough: 0.9 });
+  lathe(g, smooth([[0, 0], [0.018, 0], [0.02, 0.012], [0.014, 0.028], [0.008, 0.03], [0, 0.03]], 12), glassD(0x1a2a3a, 0.7), 0.13, 0.221, 0.06, 0, 0, 0, 24);
+  lathe(g, [[0.008, 0.028], [0.011, 0.03], [0.011, 0.034], [0.008, 0.035]], br, 0.13, 0.221, 0.06, 0, 0, 0, 20);
+  // taburete
+  CY(g, 0.06, 0.06, 0.02, mat(0xffffff, { map: velvetTex('escritor_cojin', '#7a1a1a'), roughness: 1 }), 0, 0.17, -0.06, 0, 0, 0, 24);
+  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + PI / 4; CY(g, 0.006, 0.005, 0.16, mah, Math.cos(a) * 0.045, 0.08, -0.06 + Math.sin(a) * 0.045, 0, 0, 0, 10); }
+  // niño autómata: torso con casaca, cabeza, peluca y brazos
+  const K = grp(g, 0, 0.18, -0.06);
+  add(K, latheGeo(smooth([[0, 0], [0.06, 0.0], [0.062, 0.03], [0.05, 0.11], [0.045, 0.16], [0.03, 0.18], [0, 0.185]], 24), 32), coat, 0, 0, 0, 0.18, 0, 0);
+  for (let i = 0; i < 5; i++) SP(K, 0.004, br, 0, 0.05 + i * 0.024, 0.052 - i * 0.002 + i * 0.004, 1, 1, 0.5, 10);
+  lathe(K, smooth([[0, 0.17], [0.03, 0.172], [0.022, 0.19], [0, 0.192]], 10), mat(0xf6f2ea, { roughness: 0.8 }), 0, 0.0, 0.02, 0.18, 0, 0, 20);
+  const hd = grp(K, 0, 0.245, 0.04, 0.35, 0, 0);
+  const headG = ellG(0.04, 0.047, 0.042, 40, 30); carve(headG, [{ c: [-0.014, 0.004, 0.038], r: 0.012, d: 0.003, dir: [0, 0, -1] }, { c: [0.014, 0.004, 0.038], r: 0.012, d: 0.003, dir: [0, 0, -1] }, { c: [0, -0.008, 0.042], r: 0.012, d: 0.006, dir: [0, 0, 1] }]);
+  add(hd, headG, skin);
+  for (const s of [-1, 1]) { SP(hd, 0.006, mat(0xffffff, { roughness: 0.1, env: true }), s * 0.014, 0.004, 0.034, 1, 0.8, 0.6, 12); SP(hd, 0.0032, mat(0x2a4a7a, { roughness: 0.05, env: true }), s * 0.014, 0.003, 0.039, 1, 1, 0.5, 10); SP(hd, 0.006, mat(0xf0a8a0, { roughness: 0.5 }), s * 0.022, -0.012, 0.03, 1, 0.6, 0.4, 10); }
+  const wig = ellG(0.043, 0.04, 0.045, 32, 20); warpG(wig, (v) => { if (v.y < -0.005 && v.z > 0) v.y = -0.005 + (v.y + 0.005) * 0.2; });
+  add(hd, wig, mat(0xb8743a, { roughness: 0.75 }), 0, 0.016, -0.004);
+  for (const s of [-1, 1]) TO(hd, 0.008, 0.004, mat(0xb8743a, { roughness: 0.75 }), s * 0.038, 0.0, -0.005, 0, PI / 2, 0, TAU, 16);
+  // brazos: el derecho sostiene la pluma sobre la carta
+  for (const s of [-1, 1]) {
+    add(K, swGeo([[s * 0.055, 0.15, 0.03], [s * 0.07, 0.09, 0.08], [s * 0.04, 0.05, 0.16]], [0.016, 0.014, 0.012], 12, 16), coat);
+    TO(K, 0.012, 0.004, mat(0xf6f2ea, { roughness: 0.8 }), s * 0.04, 0.05, 0.165, 0, 0, 0, TAU, 14);
+    SP(K, 0.012, skin, s * 0.035, 0.045, 0.18, 1, 0.7, 1.2, 14);
+  }
+  TU(K, [[0.035, 0.045, 0.18], [0.04, 0.09, 0.19], [0.055, 0.14, 0.17]], 0.0012, mat(0xf6f2ea, { roughness: 0.6 }), false, 10);
+  const plume = new THREE.PlaneGeometry(0.02, 0.07, 1, 6); plume.translate(0, 0.035, 0); warpG(plume, (v) => { v.z -= Math.pow(v.y / 0.07, 2) * 0.01; v.x *= Math.sin(Math.max(0.05, v.y / 0.07) * PI); });
+  add(K, plume, mat(0xf6f2ea, { roughness: 0.8, side: THREE.DoubleSide }), 0.045, 0.1, 0.18, 0, 0, -0.3).castShadow = false;
+  // espalda abierta con el mecanismo de levas
+  const back = grp(K, 0, 0.09, -0.052, 0.18, 0, 0);
+  RB(back, 0.07, 0.1, 0.004, 0.002, br, 0, 0, 0);
+  for (let i = 0; i < 6; i++) add(back, gearGeo(0.008 + (i % 3) * 0.004, 10 + i * 2, 0.002, 0.002, 0.001), br, (i % 2 ? 0.015 : -0.015), -0.035 + i * 0.014, -0.003, 0, PI, i);
+  CY(back, 0.002, 0.002, 0.09, metal(0xc8ccd0, 0.2), 0, 0, -0.006, 0, 0, 0, 8);
+  plaque(g, 'L\'ÉCRIVAIN', 'Neuchâtel · 6 000 pièces', 0.09, 0.015, 0, 0.21, 0.2115, 0, 0);
+  return ground(g);
+};
+
+// ---------- Arpa de concierto dorada ----------
+BUILDERS_C.arpa_concierto_dorada = () => {
+  const g = new THREE.Group();
+  const gl = gold(0.2), glD = goldD();
+  const sbT = canvasTex('C_arpa_tabla', 256, 1024, (c, w, h) => {
+    const R = rng(47); c.fillStyle = '#d8b070'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 160; i++) { c.strokeStyle = `rgba(120,70,20,${0.05 + R() * 0.12})`; c.lineWidth = 0.5 + R() * 2; c.beginPath(); const x = R() * w; c.moveTo(x, 0); c.lineTo(x + (R() - 0.5) * 10, h); c.stroke(); }
+    c.strokeStyle = '#8a5a1a'; c.lineWidth = 3;
+    for (let k = 0; k < 6; k++) { const y = h * (0.15 + k * 0.13); c.beginPath(); c.moveTo(w * 0.5, y); c.bezierCurveTo(w * 0.1, y - 30, w * 0.1, y + 40, w * 0.5, y + 50); c.bezierCurveTo(w * 0.9, y + 40, w * 0.9, y - 30, w * 0.5, y); c.stroke(); }
+  });
+  const caseM = mat(0xffffff, { map: engraveTex('arpa_caja', '#d8ab4a', 'rgba(70,40,5,0.4)'), metalness: 1, roughness: 0.3 });
+  // base con pedales (x: columna adelante, caja hacia atrás)
+  const baseM = mat(0xffffff, { map: engraveTex('arpa_base', '#d8ab4a'), metalness: 1, roughness: 0.25 });
+  RB(g, 0.56, 0.1, 0.34, 0.02, baseM, 0.06, 0.07, 0);
+  for (let i = 0; i < 4; i++) lathe(g, smooth([[0, 0], [0.025, 0], [0.018, 0.012], [0, 0.02]], 8), gl, -0.18 + (i % 2) * 0.48, 0, -0.13 + Math.floor(i / 2) * 0.26, 0, 0, 0, 16);
+  for (let i = 0; i < 7; i++) RB(g, 0.016, 0.008, 0.07, 0.003, metal(0xd8dce0, 0.2), -0.08 + i * 0.045, 0.035, 0.19, 0.1 * (i % 3 - 1), 0, 0);
+  // columna corintia estriada
+  const colX = 0.3, colTop = 1.5;
+  const col = latheGeo([[0, 0], [0.038, 0], [0.038, colTop - 0.3]], 48);
+  warpG(col, (v) => { const a = Math.atan2(v.z, v.x), r = Math.hypot(v.x, v.z); if (r > 0.01) { const k = 1 - 0.07 * Math.pow(Math.abs(Math.sin(a * 12)), 0.6); v.x *= k; v.z *= k; } });
+  add(g, col, gl, colX, 0.12, 0);
+  lathe(g, smooth([[0.05, 0], [0.06, 0.02], [0.045, 0.04]], 10), gl, colX, 0.12, 0, 0, 0, 0, 32);
+  const cap = grp(g, colX, colTop - 0.18, 0);
+  lathe(cap, smooth([[0.038, 0], [0.05, 0.05], [0.068, 0.12], [0.08, 0.16]], 16), gl, 0, 0, 0, 0, 0, 0, 32);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; const lf = new THREE.PlaneGeometry(0.04, 0.1, 1, 6); lf.translate(0, 0.05, 0); warpG(lf, (v) => { const t = v.y / 0.1; v.z += Math.sin(t * PI * 0.9) * 0.02 + Math.pow(t, 3) * 0.02; v.x *= 1 - t * 0.5; }); add(cap, lf, glD, Math.cos(a) * 0.046, 0.02 + (i % 2) * 0.04, Math.sin(a) * 0.046, 0, -a + PI / 2, 0); }
+  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + PI / 4; TU(cap, [[Math.cos(a) * 0.06, 0.13, Math.sin(a) * 0.06], [Math.cos(a) * 0.1, 0.15, Math.sin(a) * 0.1], [Math.cos(a) * 0.095, 0.12, Math.sin(a) * 0.095]], 0.006, gl, false, 10); }
+  lathe(g, smooth([[0, 0], [0.07, 0], [0.06, 0.03], [0.03, 0.06], [0.04, 0.08], [0, 0.12]], 16), gl, colX, colTop, 0, 0, 0, 0, 32); // corona
+  // caja de resonancia: de la base (cerca de la columna) inclinada hacia atrás
+  const sbBot = new THREE.Vector3(0.06, 0.13, 0), sbTop = new THREE.Vector3(-0.42, 1.28, 0);
+  const axis = sbTop.clone().sub(sbBot), len = axis.length(), ang = Math.atan2(-axis.x, axis.y);
+  const SB = grp(g, sbBot.x, sbBot.y, 0, 0, 0, ang);
+  const box = new THREE.BoxGeometry(1, 1, 1, 6, 30, 8); box.translate(-0.5, 0.5, 0);
+  warpG(box, (v) => { const t = v.y; const w = 0.34 * (1 - 0.68 * t), d = 0.2 * (1 - 0.55 * t); const zz = v.z; const xx = v.x; // xx: -1..0 (fondo..tabla)
+    const back = Math.sqrt(Math.max(0, 1 - Math.pow(zz * 2, 2))); v.x = xx * d * (0.55 + 0.45 * back); v.z = zz * w; v.y = t * len; });
+  add(SB, box, caseM);
+  // tabla armónica (cara +x local, mira hacia las cuerdas)
+  const sbShape = new THREE.Shape(); sbShape.moveTo(-0.165, 0); sbShape.lineTo(0.165, 0); sbShape.lineTo(0.055, len); sbShape.lineTo(-0.055, len); sbShape.closePath();
+  const sbGeo = new THREE.ShapeGeometry(sbShape); { const uv = sbGeo.attributes.uv, p = sbGeo.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) + 0.165) / 0.33, p.getY(i) / len); }
+  add(SB, sbGeo, mat(0xffffff, { map: sbT, roughness: 0.4, env: true, envI: 0.5 }), 0.002, 0, 0, 0, PI / 2, 0);
+  B(SB, 0.006, len * 0.97, 0.014, gl, 0.004, len * 0.5, 0);
+  // cuello en S: de la punta de la caja a la corona de la columna
+  const neckPts = [[-0.44, 1.3, 0], [-0.3, 1.39, 0], [-0.08, 1.4, 0], [0.12, 1.47, 0], [colX - 0.02, colTop + 0.02, 0]];
+  add(g, swGeo(neckPts, [0.045, 0.04, 0.036, 0.038, 0.042], 14, 48, 0.55), gl);
+  const vol = []; for (let i = 0; i <= 30; i++) { const t = i / 30, a = PI + t * TAU * 1.2, r = 0.045 * (1 - t * 0.7); vol.push([-0.46 + Math.cos(a) * r * 0.6, 1.33 + Math.sin(a) * r, 0]); }
+  add(g, swGeo(vol, (t) => 0.024 * (1 - t * 0.6), 10, 40, 0.8), gl);
+  // clavijas a lo largo del cuello
+  const neckC = new THREE.CatmullRomCurve3(neckPts.map(p => new THREE.Vector3(...p)));
+  const samp = neckC.getPoints(400);
+  const neckY = (x) => { let best = samp[0]; for (const q of samp) if (Math.abs(q.x - x) < Math.abs(best.x - x)) best = q; return best.y; };
+  // 47 cuerdas verticales: de la línea central de la tabla al cuello
+  const strings = [], red = [], blue = [], pins = [];
+  for (let i = 0; i < 47; i++) {
+    const t = 0.03 + i / 46 * 0.93;
+    const pb = sbBot.clone().lerp(sbTop, t); pb.x += 0.012;
+    const top = neckY(pb.x) - 0.035; const L = top - pb.y; if (L < 0.03) continue;
+    const r = 0.0006 + (L / 1.3) * 0.0012;
+    const ge = new THREE.CylinderGeometry(r, r, L, 4); ge.translate(pb.x, pb.y + L / 2, 0);
+    (i % 7 === 0 ? red : i % 7 === 4 ? blue : strings).push(ge);
+    pins.push(gx(new THREE.CylinderGeometry(0.003, 0.003, 0.05, 6), pb.x, top + 0.012, 0, PI / 2));
+  }
+  merged(g, strings, mat(0xf2e6c8, { roughness: 0.4 }));
+  merged(g, red, mat(0xb8261a, { roughness: 0.4 }));
+  merged(g, blue, mat(0x1a3a9a, { roughness: 0.4 }));
+  merged(g, pins, metal(0xd8dce0, 0.2));
+  plaque(g, 'LYON & HEALY', 'Style 23 · hoja de oro 23 k', 0.1, 0.018, 0.06, 0.07, 0.1725, 0, 0);
+  return ground(g);
+};
+
+// ---------- Huevo imperial de celosía ----------
+BUILDERS_C.huevo_imperial_celosia = () => {
+  const g = new THREE.Group();
+  const gT = canvasTex('C_guilloche_azul', 512, 512, (c, w, h) => {
+    c.fillStyle = '#1a3a9a'; c.fillRect(0, 0, w, h);
+    for (let k = 0; k < 120; k++) { c.strokeStyle = `rgba(${k % 2 ? '120,170,255' : '10,20,80'},0.35)`; c.lineWidth = 1.5; c.beginPath(); for (let x = 0; x <= w; x += 4) c.lineTo(x, k * 4.3 + Math.sin(x / w * TAU * 6 + k * 0.4) * 6); c.stroke(); }
+  }, true);
+  const enamel = new THREE.MeshPhysicalMaterial({ map: gT, roughness: 0.12, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.3 });
+  const gl = gold(0.18), dia = gem(0xf4f8ff, 0.9);
+  const egg = smooth([[0, 0], [0.045, 0.012], [0.062, 0.05], [0.06, 0.09], [0.045, 0.125], [0.022, 0.145], [0, 0.152]], 48);
+  const E = grp(g, 0, 0.09, 0);
+  add(E, latheGeo(egg, 64), enamel);
+  // red de oro: meridianos y espirales cruzadas con rosetas de diamantes
+  const net = [], gems = [];
+  const eggR = (y) => { for (let i = 1; i < egg.length; i++) if (egg[i][1] >= y) { const [r0, y0] = egg[i - 1], [r1, y1] = egg[i]; return r0 + (r1 - r0) * (y - y0) / (y1 - y0 || 1); } return 0; };
+  for (const dir of [-1, 1]) for (let k = 0; k < 10; k++) { const pts = []; for (let i = 0; i <= 40; i++) { const t = 0.04 + i / 40 * 0.92, y = t * 0.152, a = k / 10 * TAU + dir * t * PI * 0.9, r = eggR(y) + 0.0012; pts.push([Math.cos(a) * r, y, Math.sin(a) * r]); } net.push(tubeGeo(pts, 0.0011, 60, 5)); }
+  for (let j = 1; j < 6; j++) { const y = j / 6 * 0.152; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU + (j % 2) * PI / 10 + 0.0, r = eggR(y) + 0.0022; gems.push(gx(new THREE.OctahedronGeometry(0.0024, 0), Math.cos(a) * r, y, Math.sin(a) * r)); } }
+  merged(E, net, gl); merged(E, gems, dia);
+  // cimera: corona con diamante, y anillo del ecuador
+  lathe(E, smooth([[0, 0.148], [0.012, 0.149], [0.008, 0.156], [0.0, 0.16]], 12), gl, 0, 0, 0, 0, 0, 0, 24);
+  add(E, new THREE.OctahedronGeometry(0.006, 0), dia, 0, 0.165, 0).scale.set(1, 1.3, 1);
+  TO(E, 0.0605, 0.0022, gl, 0, 0.07, 0, PI / 2, 0, 0, TAU, 96);
+  // trípode de oro con patas de garra y base de nefrita
+  const neph = mat(0x2a6a3a, { roughness: 0.15, env: true, envI: 0.8 });
+  lathe(g, smooth([[0, 0], [0.07, 0], [0.072, 0.012], [0.06, 0.02], [0, 0.02]], 16), neph, 0, 0, 0, 0, 0, 0, 48);
+  for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; add(g, swGeo([[Math.cos(a) * 0.05, 0.022, Math.sin(a) * 0.05], [Math.cos(a) * 0.055, 0.06, Math.sin(a) * 0.055], [Math.cos(a) * 0.035, 0.1, Math.sin(a) * 0.035]], [0.004, 0.003, 0.0035], 8, 14), gl); SP(g, 0.006, gl, Math.cos(a) * 0.05, 0.024, Math.sin(a) * 0.05); }
+  TO(g, 0.036, 0.003, gl, 0, 0.1, 0, PI / 2, 0, 0, TAU, 48);
+  plaque(g, 'PASCUA IMPERIAL', 'San Petersburgo · 1913', 0.07, 0.013, 0, 0.012, 0.0695, -0.3, 0);
+  return ground(g);
+};
+
+// ---------- Cuaderno de Leonardo y ornitóptero ----------
+BUILDERS_C.cuaderno_leonardo = () => {
+  const g = new THREE.Group();
+  const pageL = parchmentTex('leo_izq', { draw: (c, w, h, R) => {
+    c.save(); c.translate(w, 0); c.scale(-1, 1); // escritura en espejo
+    c.fillStyle = 'rgba(70,40,15,0.8)'; c.font = 'italic 22px Georgia';
+    for (let i = 0; i < 16; i++) c.fillText('del moto degli uccelli e della forza ' + (i % 3 ? 'delle ali' : 'del vento'), 30, 40 + i * 28);
+    c.restore();
+    c.strokeStyle = 'rgba(70,40,15,0.75)'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(80, 420); c.quadraticCurveTo(200, 360, 320, 420); c.quadraticCurveTo(260, 470, 200, 440); c.quadraticCurveTo(140, 470, 80, 420); c.stroke();
+    for (let k = 0; k < 8; k++) { c.beginPath(); c.moveTo(200, 440); c.lineTo(90 + k * 30, 380 + Math.abs(k - 3.5) * 6); c.stroke(); }
+  } });
+  const pageR = parchmentTex('leo_der', { draw: (c, w, h) => {
+    c.strokeStyle = 'rgba(70,40,15,0.75)'; c.lineWidth = 2;
+    c.beginPath(); c.arc(w / 2, 170, 90, 0, TAU); c.stroke(); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; c.beginPath(); c.moveTo(w / 2, 170); c.lineTo(w / 2 + Math.cos(a) * 90, 170 + Math.sin(a) * 90); c.stroke(); }
+    c.beginPath(); c.moveTo(60, 330); c.lineTo(w - 60, 330); c.moveTo(w / 2, 280); c.lineTo(w / 2, 470); c.stroke();
+    c.save(); c.translate(w, 0); c.scale(-1, 1); c.fillStyle = 'rgba(70,40,15,0.8)'; c.font = 'italic 22px Georgia'; for (let i = 0; i < 6; i++) c.fillText('la vite aerea · elicoide ' + i, 40, 300 + i * 30 + 80); c.restore();
+  } });
+  // libro abierto con páginas curvas
+  const leather = C.leather(0x4a2a14);
+  RB(g, 0.42, 0.008, 0.28, 0.003, leather, -0.12, 0.004, 0.05);
+  for (const s of [-1, 1]) {
+    const pg = new THREE.PlaneGeometry(0.19, 0.26, 16, 1);
+    warpG(pg, (v) => { const t = Math.abs(v.x - s * -0.095) / 0.19; v.z = Math.sin(Math.min(1, (0.19 - Math.abs(v.x + s * 0.095 - s * 0.095 * 2 + s * 0.095)) / 0.19) * PI) * 0; });
+    const m = add(g, pg, mat(0xffffff, { map: s < 0 ? pageL : pageR, roughness: 0.9 }), -0.12 + s * 0.1, 0.016, 0.05, -PI / 2, 0, 0);
+    warpG(m.geometry, (v) => { const u = (v.x + 0.095) / 0.19, d = s < 0 ? 1 - u : u; v.z = Math.sin(Math.min(1, d) * PI * 0.5) * 0.012 * (1 - d * 0.4) + (d < 0.08 ? -0.006 * (1 - d / 0.08) : 0); });
+    RB(g, 0.19, 0.012, 0.26, 0.002, mat(0xe8dcbc, { roughness: 0.95 }), -0.12 + s * 0.1, 0.011, 0.05);
+  }
+  // ornitóptero: armazón de madera, alas de tela con costillas, timón
+  const pine = woodM('leo_pino', '#a8763a', { rough: 0.55 }), cloth = mat(0xd8c8a0, { roughness: 0.95, side: THREE.DoubleSide, map: canvasTex('C_lino', 64, 64, (c, w, h) => { c.fillStyle = '#d8c8a0'; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(80,60,30,0.15)'; for (let i = 0; i < w; i += 3) { c.fillRect(i, 0, 1, h); c.fillRect(0, i, w, 1); } }, true) });
+  const O = grp(g, 0.18, 0.2, -0.02, 0, -0.5, 0);
+  B(g, 0.012, 0.18, 0.012, C.darkWood(), 0.18, 0.1, -0.02);
+  RB(g, 0.12, 0.016, 0.12, 0.004, C.darkWood(), 0.18, 0.008, -0.02);
+  TU(O, [[0, 0, -0.16], [0, 0.01, 0], [0, 0, 0.14]], 0.004, pine, false, 12);
+  for (const s of [-1, 1]) {
+    const spar = [[0, 0.01, 0.02], [s * 0.1, 0.03, 0.03], [s * 0.2, 0.05, 0.02], [s * 0.28, 0.07, -0.01]];
+    TU(O, spar, 0.003, pine, false, 16);
+    const ribs = []; for (let k = 0; k < 6; k++) { const t = 0.15 + k * 0.15, x = s * 0.28 * t, y = 0.01 + 0.06 * t; ribs.push(tubeGeo([[x, y, 0.025 - t * 0.02], [x * 1.02, y - 0.004, -0.04 - Math.sin(t * PI) * 0.04], [x * 1.03, y - 0.008, -0.09 - Math.sin(t * PI) * 0.05]], 0.0016, 8, 4)); }
+    merged(O, ribs, pine);
+    const wing = new THREE.Shape(); wing.moveTo(0, 0.025); wing.lineTo(s * 0.28, -0.01); wing.quadraticCurveTo(s * 0.26, -0.1, s * 0.2, -0.13); wing.quadraticCurveTo(s * 0.12, -0.09, s * 0.08, -0.14); wing.quadraticCurveTo(s * 0.04, -0.09, 0, -0.08); wing.closePath();
+    const wg = new THREE.ShapeGeometry(wing, 12); warpG(wg, (v) => { const t = Math.abs(v.x) / 0.28; v.z = 0.01 + 0.06 * t - Math.sin(Math.max(0, -v.y) / 0.14 * PI) * 0.006; });
+    add(O, wg, cloth, 0, 0, 0, PI / 2, 0, 0).geometry.rotateX(0);
+  }
+  const tail = new THREE.Shape(); tail.moveTo(0, 0); tail.lineTo(0.05, 0.05); tail.lineTo(-0.05, 0.05); tail.closePath();
+  add(O, new THREE.ShapeGeometry(tail), cloth, 0, 0.0, -0.16, -PI / 2, 0, PI);
+  plaque(g, 'CODEX ATLANTICUS', 'Facsímil · Ornitottero', 0.1, 0.016, -0.12, 0.004, 0.193, -PI / 2 + 0.3, 0);
+  return ground(g);
+};
+
+// ---------- Meteorito de hierro pulido ----------
+BUILDERS_C.meteorito_hierro = () => {
+  const g = new THREE.Group();
+  const wid = canvasTex('C_widmanstatten2', 512, 512, (c, w, h) => {
+    const R = rng(1947); c.fillStyle = '#b8bec4'; c.fillRect(0, 0, w, h);
+    for (const ang of [0, PI / 3, -PI / 3]) for (let i = 0; i < 80; i++) { c.save(); c.translate(R() * w, R() * h); c.rotate(ang + (R() - 0.5) * 0.05); const L = 60 + R() * 220, T = 3 + R() * 9; c.fillStyle = `rgba(${R() < 0.5 ? '235,238,242' : '110,114,120'},0.6)`; c.fillRect(-L / 2, -T / 2, L, T); c.strokeStyle = 'rgba(50,52,56,0.7)'; c.lineWidth = 1; c.strokeRect(-L / 2, -T / 2, L, T); c.restore(); }
+    for (let i = 0; i < 6; i++) { c.fillStyle = 'rgba(60,45,30,0.7)'; c.beginPath(); c.ellipse(R() * w, R() * h, 5 + R() * 12, 3 + R() * 8, R() * 3, 0, TAU); c.fill(); } // nódulos de troilita
+  });
+  const nz = noise3(77);
+  const rock = mergeVertices(new THREE.IcosahedronGeometry(0.1, 5));
+  displace(rock, (x, y, z) => nz(x * 14, y * 14, z * 14, 4) * 0.018 - Math.max(0, nz(x * 34 + 5, y * 34, z * 34)) * 0.012 /* regmagliptos */);
+  warpG(rock, (v) => { v.x *= 1.35; v.y *= 0.85; if (v.z > 0.035) v.z = 0.035; }); // cara cortada plana
+  const crust = mat(0x3a302a, { roughness: 0.6, metalness: 0.7, env: true, envI: 0.6 });
+  const R0 = grp(g, 0, 0.13, 0, 0, 0, 0.15);
+  add(R0, rock, crust);
+  const face = new THREE.CircleGeometry(1, 64); warpG(face, (v) => { const a = Math.atan2(v.y, v.x); const r = 0.9 + nz(Math.cos(a) * 3, Math.sin(a) * 3, 1) * 0.15; v.x *= r * 0.118; v.y *= r * 0.075; });
+  add(R0, face, mat(0xffffff, { map: wid, metalness: 0.85, roughness: 0.28, env: true, envI: 1.2 }), 0, 0, 0.0352);
+  // soporte de acero y base
+  const steel = metal(0x2a2c30, 0.3);
+  RB(g, 0.26, 0.03, 0.14, 0.006, mat(0x14141a, { roughness: 0.25, env: true, envI: 0.6 }), 0, 0.015, 0);
+  for (const s of [-1, 1]) TU(g, [[s * 0.06, 0.03, -0.02], [s * 0.07, 0.07, -0.03], [s * 0.08, 0.1, -0.02]], 0.004, steel, false, 10);
+  plaque(g, 'SIDERITO', 'Octaedrita · Chihuahua', 0.08, 0.014, 0, 0.016, 0.0705, 0, 0);
+  return ground(g);
+};
+
+// ---------- Cráneo de tigre dientes de sable ----------
+BUILDERS_C.craneo_dientes_sable = () => {
+  const g = new THREE.Group();
+  const boneT = canvasTex('C_hueso_brea2', 512, 512, (c, w, h) => { const R = rng(302); c.fillStyle = '#8a6a44'; c.fillRect(0, 0, w, h); for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(30,18,8,${0.08 + R() * 0.2})`; c.beginPath(); c.ellipse(R() * w, R() * h, 10 + R() * 50, 6 + R() * 25, R() * 3, 0, TAU); c.fill(); } for (let i = 0; i < 3000; i++) { c.fillStyle = `rgba(${R() < 0.5 ? '25,15,6' : '200,170,120'},${R() * 0.25})`; c.fillRect(R() * w, R() * h, 1 + R() * 2, 1); } }, true);
+  const bone = mat(0xffffff, { map: boneT, roughness: 0.38, env: true, envI: 0.55 });
+  const tooth = mat(0xe0d0a8, { roughness: 0.28, env: true, envI: 0.7 });
+  const dark = mat(0x0a0604, { roughness: 1 });
+  // cráneo largo y bajo; z hacia el hocico (largo ~0.3)
+  const sk = ellG(0.07, 0.06, 0.15, 72, 48);
+  warpG(sk, (v) => {
+    const t = v.z / 0.15; // -1 occipucio, 1 hocico
+    if (t > 0.15) { const k = (t - 0.15) / 0.85; v.y *= 1 - k * 0.3; v.x *= 1 - k * 0.42; v.y -= k * 0.008; }
+    if (t < -0.6) { v.y *= 1 - (-0.6 - t) * 0.8; }
+    if (v.y < -0.018) v.y = -0.018 + (v.y + 0.018) * 0.3; // base plana (paladar)
+    if (v.y > 0.03 && t < 0.45) { const c = Math.max(0, 1 - Math.abs(v.x) / 0.01); v.y += 0.014 * c * Math.min(1, (0.45 - t) * 2); } // cresta sagital
+  });
+  carve(sk, [
+    { c: [-0.04, 0.022, 0.055], r: 0.03, d: 0.03, dir: [0.55, -0.1, -0.45] }, { c: [0.04, 0.022, 0.055], r: 0.03, d: 0.03, dir: [-0.55, -0.1, -0.45] }, // órbitas
+    { c: [0, 0.012, 0.15], r: 0.02, d: 0.02, dir: [0, 0, -1] }, // abertura nasal
+    { c: [-0.068, 0.005, -0.03], r: 0.05, d: 0.026, dir: [1, 0, 0] }, { c: [0.068, 0.005, -0.03], r: 0.05, d: 0.026, dir: [-1, 0, 0] }, // fosas temporales
+  ]);
+  const S = grp(g, 0, 0.21, 0, -0.1, 0, 0);
+  add(S, sk, bone);
+  for (const s of [-1, 1]) {
+    add(S, swGeo([[s * 0.036, -0.004, 0.085], [s * 0.078, 0.002, 0.035], [s * 0.074, -0.004, -0.025], [s * 0.048, -0.012, -0.055]], [0.008, 0.012, 0.01, 0.008], 10, 24, 0.6), bone); // arcos cigomáticos
+    SP(S, 0.016, dark, s * 0.034, 0.018, 0.062, 0.8, 1, 0.5, 14);
+    SP(S, 0.006, dark, s * 0.009, 0.008, 0.147, 1, 1.3, 0.5, 10);
+    // colmillos de sable
+    const sab = []; for (let i = 0; i <= 16; i++) { const t = i / 16; sab.push([s * (0.028 - t * 0.006), -0.02 - t * 0.16, 0.112 - t * 0.03 - t * t * 0.035]); }
+    add(S, swGeo(sab, (t) => 0.011 * (1 - t * 0.9), 12, 24, 0.5), tooth);
+    for (let k = 0; k < 3; k++) CO(S, 0.0045 + k * 0.001, 0.012, tooth, s * (0.04 + k * 0.004), -0.026, 0.07 - k * 0.018, PI, 0, 0, 8); // carniceros
+    for (let k = 0; k < 3; k++) CO(S, 0.0024, 0.007, tooth, s * (0.006 + k * 0.006), -0.026, 0.145 - k * 0.004, PI, 0, 0, 6); // incisivos
+  }
+  // mandíbula abierta ~85° (por arriba de la base)
+  const J = grp(S, 0, -0.03, -0.05, 1.45, 0, 0);
+  const jaw = []; for (const s of [-1, 1]) jaw.push(swGeo([[s * 0.056, 0.03, -0.005], [s * 0.052, 0.0, 0.05], [s * 0.026, -0.004, 0.13], [s * 0.008, -0.006, 0.15]], [0.011, 0.013, 0.012, 0.011], 10, 24, 0.55));
+  jaw.push(swGeo([[-0.012, -0.006, 0.148], [0, -0.008, 0.152], [0.012, -0.006, 0.148]], [0.011, 0.012, 0.011], 8, 8, 0.6));
+  merged(J, jaw, bone);
+  for (const s of [-1, 1]) { for (let k = 0; k < 3; k++) CO(J, 0.004, 0.011, tooth, s * (0.042 - k * 0.006), 0.011, 0.06 + k * 0.02, 0, 0, 0, 8); CO(J, 0.004, 0.014, tooth, s * 0.014, 0.004, 0.142, 0, 0, 0, 8); }
+  // base de exhibición con soportes de acero
+  RB(g, 0.34, 0.04, 0.26, 0.006, mat(0x14100c, { roughness: 0.4, env: true, envI: 0.4 }), 0, 0.02, 0);
+  const st = metal(0x2a2a2a, 0.4);
+  TU(g, [[0, 0.04, -0.07], [0, 0.12, -0.07], [0, 0.19, -0.06]], 0.004, st, false, 8);
+  TU(g, [[0, 0.04, 0.03], [0, 0.15, 0.03], [0, 0.192, 0.04]], 0.004, st, false, 8);
+  plaque(g, 'SMILODON FATALIS', 'Pleistoceno · pozo de brea', 0.11, 0.016, 0, 0.022, 0.1305, 0, 0);
+  return ground(g);
+};
+
+// ---------- Mecanismo de Anticitera ----------
+BUILDERS_C.mecanismo_anticitera = () => {
+  const g = new THREE.Group();
+  const bronze = metal(0xb07a3a, 0.32), bronzeD = metal(0x8a5a2a, 0.4);
+  const wd = woodM('anticitera_caja', '#5a3418', { rough: 0.5 });
+  // caja de madera abierta por el frente
+  const W = 0.2, H = 0.3, D = 0.1, y0 = 0.03;
+  RB(g, 0.5, 0.03, 0.22, 0.006, mat(0x14141a, { roughness: 0.3, env: true, envI: 0.5 }), 0.06, 0.015, 0);
+  for (const [w, h, d, x, y, z] of [[W, 0.01, D, 0, y0 + 0.005, 0], [W, 0.01, D, 0, y0 + H - 0.005, 0], [0.01, H, D, -W / 2, y0 + H / 2, 0], [0.01, H, D, W / 2, y0 + H / 2, 0], [W, H, 0.008, 0, y0 + H / 2, -D / 2]]) RB(g, w, h, d, 0.002, wd, x, y, z);
+  // frente: esfera zodiacal y del calendario egipcio, con manecillas
+  const dialT = canvasTex('C_anti_dial', 512, 512, (c, w, h) => {
+    const cx = w / 2, cy = h / 2; c.fillStyle = '#b07a3a'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = 'rgba(50,25,5,0.85)'; c.fillStyle = 'rgba(50,25,5,0.85)';
+    for (const r of [240, 200, 160]) { c.lineWidth = 4; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.stroke(); }
+    for (let k = 0; k < 365; k += 1) { const a = k / 365 * TAU; c.lineWidth = k % 30 ? 1 : 3; c.beginPath(); c.moveTo(cx + Math.cos(a) * 225, cy + Math.sin(a) * 225); c.lineTo(cx + Math.cos(a) * 240, cy + Math.sin(a) * 240); c.stroke(); }
+    c.font = 'bold 20px Georgia'; c.textAlign = 'center';
+    const zod = ['ΚΡΙΟΣ', 'ΤΑΥΡΟΣ', 'ΔΙΔΥΜΟΙ', 'ΚΑΡΚΙΝΟΣ', 'ΛΕΩΝ', 'ΠΑΡΘΕΝΟΣ', 'ΧΗΛΑΙ', 'ΣΚΟΡΠΙΟΣ', 'ΤΟΞΟΤΗΣ', 'ΑΙΓΟΚΕΡΩΣ', 'ΥΔΡΟΧΟΟΣ', 'ΙΧΘΥΕΣ'];
+    for (let k = 0; k < 12; k++) { const a = (k + 0.5) / 12 * TAU; c.save(); c.translate(cx + Math.cos(a) * 180, cy + Math.sin(a) * 180); c.rotate(a + PI / 2); c.fillText(zod[k], 0, 6); c.restore(); }
+  });
+  const F = grp(g, 0, y0 + H * 0.6, D / 2 + 0.002);
+  RB(F, W - 0.01, H * 0.62, 0.004, 0.002, bronzeD, 0, 0, -0.002);
+  add(F, new THREE.CircleGeometry(0.08, 96), mat(0xffffff, { map: dialT, metalness: 1, roughness: 0.3 }), 0, 0, 0.001);
+  for (const [len, a, w] of [[0.07, 0.4, 0.004], [0.055, 2.2, 0.005], [0.075, -1.2, 0.003]]) { const hg = grp(F, 0, 0, 0.004, 0, 0, a); B(hg, w, len, 0.0015, bronze, 0, len / 2, 0); }
+  SP(F, 0.008, metal(0xd8dcd8, 0.15), 0.03, 0.03, 0.005, 1, 1, 0.5, 14); SP(F, 0.008, mat(0x1a1a1a, { roughness: 0.6 }), 0.033, 0.03, 0.0055, 1, 1, 0.5, 14); // esfera lunar
+  CY(g, 0.006, 0.006, 0.03, wd, W / 2 + 0.015, y0 + H * 0.5, 0, 0, 0, PI / 2, 12); // manivela
+  SP(g, 0.012, wd, W / 2 + 0.035, y0 + H * 0.5, 0.02);
+  // tren de engranes visible en el costado (caja sin tapa lateral derecha)
+  const gearsM = [];
+  const list = [[0.07, 223, 0.04, 0.17], [0.03, 48, -0.04, 0.24], [0.022, 32, 0.0, 0.08], [0.026, 38, 0.06, 0.06], [0.018, 24, -0.05, 0.1], [0.04, 64, -0.02, 0.15]];
+  for (const [r, n, zz, yy] of list) gearsM.push(gx(gearGeo(r, Math.min(n, 90), Math.min(0.004, r * 0.08), 0.0025, r * 0.15, r > 0.025 ? 4 : 0, r * 0.15), 0, y0 + yy, zz * 0.6, 0, PI / 2, 0));
+  const gearGrp = grp(g, W / 2 + 0.006, 0, 0, 0, 0, 0);
+  merged(gearGrp, gearsM, bronze);
+  // fragmento original corroído (verde) a un lado
+  const nz = noise3(150);
+  const frag = new THREE.CylinderGeometry(0.075, 0.075, 0.018, 48, 1);
+  warpG(frag, (v) => { const a = Math.atan2(v.z, v.x); const r = Math.hypot(v.x, v.z); const edge = 0.55 + nz(Math.cos(a) * 2, Math.sin(a) * 2, 3, 3) * 0.6; if (r > 0.01) { v.x *= edge; v.z *= edge; } v.y += nz(v.x * 30, v.z * 30, 9) * 0.004; });
+  const corrT = canvasTex('C_corrosion', 256, 256, (c, w, h) => { const R = rng(87); c.fillStyle = '#4a6a4a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 1500; i++) { c.fillStyle = `rgba(${R() < 0.4 ? '120,170,130' : R() < 0.7 ? '60,40,20' : '30,50,40'},${R() * 0.5})`; c.beginPath(); c.arc(R() * w, R() * h, 1 + R() * 4, 0, TAU); c.fill(); } c.strokeStyle = 'rgba(30,40,30,0.7)'; c.lineWidth = 2; for (let k = 0; k < 40; k++) { const a = k / 40 * TAU; c.beginPath(); c.moveTo(w / 2 + Math.cos(a) * 70, h / 2 + Math.sin(a) * 70); c.lineTo(w / 2 + Math.cos(a) * 80, h / 2 + Math.sin(a) * 80); c.stroke(); } });
+  add(g, frag, mat(0xffffff, { map: corrT, roughness: 0.9, metalness: 0.2 }), 0.22, 0.05, 0.0, 0.5, 0.3, 0);
+  plaque(g, 'ΑΝΤΙΚΥΘΗΡΑ', 'c. 100 a. C. · reconstrucción', 0.1, 0.015, 0.06, 0.016, 0.1105, 0, 0);
+  return ground(g);
+};
+
+// ---------- Cráneo de cristal de cuarzo ----------
+BUILDERS_C.craneo_cristal_cuarzo = () => {
+  const g = new THREE.Group();
+  const quartz = new THREE.MeshPhysicalMaterial({ color: 0xf4faff, roughness: 0.03, metalness: 0, transmission: 1, thickness: 0.04, ior: 1.54, transparent: true, opacity: 0.72, envMapIntensity: 2.2, specularIntensity: 1, clearcoat: 1, clearcoatRoughness: 0.02 });
+  const smoky = mat(0x6a7a88, { transparent: true, opacity: 0.55, roughness: 0.1, env: true, envI: 1.0 });
+  // neurocráneo con la cara integrada: frente, órbitas profundas, fosa nasal, pómulos
+  const sk = ellG(0.066, 0.074, 0.09, 80, 60);
+  warpG(sk, (v) => {
+    if (v.z < 0.03 && v.y < -0.02) v.y = -0.02 + (v.y + 0.02) * 0.35; // base del cráneo
+    if (v.z > 0.02 && v.y < 0.0) { const k = Math.min(1, -v.y / 0.06); v.x *= 1 - k * 0.22; v.z -= k * 0.012; } // maxilar más angosto
+    if (v.z > 0.04 && v.y > 0.0 && v.y < 0.03) v.z += 0.004; // arco superciliar
+  });
+  carve(sk, [
+    { c: [-0.025, -0.006, 0.084], r: 0.022, d: 0.026, dir: [0.1, 0.1, -1] }, { c: [0.025, -0.006, 0.084], r: 0.022, d: 0.026, dir: [-0.1, 0.1, -1] },
+    { c: [0, -0.036, 0.08], r: 0.013, d: 0.016, dir: [0, 0.2, -1] },
+    { c: [-0.062, -0.012, 0.005], r: 0.032, d: 0.012, dir: [1, 0, 0] }, { c: [0.062, -0.012, 0.005], r: 0.032, d: 0.012, dir: [-1, 0, 0] },
+  ]);
+  const S = grp(g, 0, 0.13, 0);
+  add(S, sk, quartz);
+  // interior de las órbitas y nariz (cuarzo ahumado para que se lean)
+  for (const s of [-1, 1]) SP(S, 0.014, smoky, s * 0.024, -0.004, 0.06, 1, 1, 0.6, 16);
+  SP(S, 0.007, smoky, 0, -0.034, 0.066, 0.8, 1.2, 0.5, 12);
+  // pómulos
+  for (const s of [-1, 1]) add(S, swGeo([[s * 0.04, -0.028, 0.07], [s * 0.058, -0.03, 0.04], [s * 0.06, -0.032, 0.005]], [0.008, 0.008, 0.006], 8, 12, 0.6), quartz);
+  // dientes superiores
+  const teeth = []; for (let i = 0; i < 12; i++) { const a = -0.85 + i / 11 * 1.7; teeth.push(gx(new RoundedBoxGeometry(0.0062, 0.01, 0.005, 2, 0.0015), Math.sin(a) * 0.03, -0.062, 0.05 + Math.cos(a) * 0.024, 0, a, 0)); }
+  merged(S, teeth, quartz);
+  // mandíbula separada (cerrada) con dientes inferiores
+  const J = grp(S, 0, -0.068, 0.0);
+  const jaw = swGeo([[-0.05, 0.03, -0.005], [-0.047, -0.005, 0.02], [-0.026, -0.016, 0.058], [0, -0.019, 0.07], [0.026, -0.016, 0.058], [0.047, -0.005, 0.02], [0.05, 0.03, -0.005]], [0.008, 0.012, 0.013, 0.015, 0.013, 0.012, 0.008], 12, 60, 0.65);
+  add(J, jaw, quartz);
+  const lt = []; for (let i = 0; i < 12; i++) { const a = -0.8 + i / 11 * 1.6; lt.push(gx(new RoundedBoxGeometry(0.006, 0.009, 0.005, 2, 0.0015), Math.sin(a) * 0.028, 0.0, 0.048 + Math.cos(a) * 0.02, 0, a, 0)); }
+  merged(J, lt, quartz);
+  // pedestal de obsidiana con terciopelo
+  lathe(g, smooth([[0, 0], [0.09, 0], [0.092, 0.012], [0.08, 0.025], [0.075, 0.03], [0, 0.03]], 20), mat(0x0a0a0c, { roughness: 0.05, env: true, envI: 1.2 }), 0, 0, 0, 0, 0, 0, 64);
+  lathe(g, smooth([[0, 0.03], [0.06, 0.03], [0.05, 0.035], [0, 0.036]], 10), mat(0xffffff, { map: velvetTex('craneo', '#141414'), roughness: 1 }), 0, 0, 0, 0, 0, 0, 48);
+  return ground(g);
+};
+
+// ---------- Pepita de oro gigante ----------
+BUILDERS_C.pepita_oro_gigante = (seed = 1) => {
+  const g = new THREE.Group();
+  const nz = noise3(4200 + seed);
+  const nug = mergeVertices(new THREE.IcosahedronGeometry(0.1, 6));
+  displace(nug, (x, y, z) => nz(x * 8, y * 8, z * 8, 4) * 0.04 + nz(x * 30, y * 30, z * 30, 2) * 0.006 - Math.max(0, nz(x * 18 + 3, y * 18, z * 18) - 0.2) * 0.04);
+  warpG(nug, (v) => { v.x *= 1.5; v.y *= 0.62; v.z *= 1.05; });
+  const goldT = canvasTex('C_oro_nativo', 256, 256, (c, w, h) => { const R = rng(19); c.fillStyle = '#d8a83a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 2500; i++) { c.fillStyle = `rgba(${R() < 0.6 ? '255,230,140' : '120,70,10'},${R() * 0.35})`; c.fillRect(R() * w, R() * h, 1 + R() * 2, 1 + R() * 2); } }, true);
+  add(g, nug, mat(0xffffff, { map: goldT, metalness: 1, roughness: 0.3, bumpMap: goldT, bumpScale: 0.0015 }), 0, 0.11, 0);
+  // cuarzo incrustado
+  for (let i = 0; i < 5; i++) { const R = rng(seed * 13 + i); add(g, new THREE.DodecahedronGeometry(0.008 + R() * 0.008, 0), mat(0xf2eee6, { roughness: 0.3 }), (R() - 0.5) * 0.2, 0.09 + R() * 0.04, (R() - 0.5) * 0.12); }
+  // base de terciopelo y vitrina
+  RB(g, 0.38, 0.04, 0.28, 0.008, woodM('pepita_base', '#2a1408', { rough: 0.3 }), 0, 0.02, 0);
+  RB(g, 0.34, 0.006, 0.24, 0.003, mat(0xffffff, { map: velvetTex('pepita', '#1a2a5a'), roughness: 1 }), 0, 0.043, 0);
+  const gl = B(g, 0.35, 0.22, 0.25, glassD(0xeef6ff, 0.1), 0, 0.15, 0); gl.castShadow = false; gl.renderOrder = 3;
+  const fr = []; for (const sx of [-1, 1]) for (const sz of [-1, 1]) fr.push(gx(new THREE.BoxGeometry(0.006, 0.22, 0.006), sx * 0.175, 0.15, sz * 0.125)); for (const sz of [-1, 1]) fr.push(gx(new THREE.BoxGeometry(0.356, 0.006, 0.006), 0, 0.26, sz * 0.125)); for (const sx of [-1, 1]) fr.push(gx(new THREE.BoxGeometry(0.006, 0.006, 0.256), sx * 0.175, 0.26, 0));
+  merged(g, fr, brass());
+  plaque(g, 'ORO NATIVO · 11.8 kg', 'Arroyo de Sonora', 0.1, 0.016, 0, 0.02, 0.1405, 0, 0);
+  return ground(g);
+};
+
+// ---------- Nido de huevos de dinosaurio ----------
+BUILDERS_C.nido_dinosaurio = (seed = 1) => {
+  const g = new THREE.Group();
+  const nz = noise3(65000 + seed);
+  const sand = mat(0xffffff, { map: stoneTex('arenisca_nido', [176, 132, 92], { spots: 1400, veins: 2 }), roughness: 0.92 });
+  const slab = new THREE.CylinderGeometry(0.26, 0.28, 0.07, 72, 4);
+  warpG(slab, (v) => { const a = Math.atan2(v.z, v.x), r = Math.hypot(v.x, v.z); const e = 0.85 + nz(Math.cos(a) * 1.5, Math.sin(a) * 1.5, 0, 3) * 0.3; if (r > 0.05) { v.x *= e; v.z *= e; } if (v.y > 0) v.y += nz(v.x * 12, v.z * 12, 2) * 0.012 - Math.max(0, 0.16 - r) * 0.1; });
+  slab.scale(1.2, 1, 0.95);
+  add(g, slab, sand, 0, 0.035, 0);
+  const shellT = canvasTex('C_cascaron2', 256, 256, (c, w, h) => { const R = rng(66); c.fillStyle = '#7a6a56'; c.fillRect(0, 0, w, h); for (let i = 0; i < 3000; i++) { c.fillStyle = `rgba(${R() < 0.5 ? '40,32,24' : '170,150,125'},${R() * 0.45})`; c.beginPath(); c.arc(R() * w, R() * h, 0.6 + R() * 1.6, 0, TAU); c.fill(); } }, true);
+  const shell = mat(0xffffff, { map: shellT, roughness: 0.75, bumpMap: shellT, bumpScale: 0.002, env: true, envI: 0.3 });
+  const inner = mat(0x4a3a2a, { roughness: 1, side: THREE.DoubleSide });
+  const R = rng(seed * 5 + 3);
+  // anillo doble de huevos inclinados hacia el centro (como en la nidada real)
+  const N = 12;
+  for (let i = 0; i < N; i++) {
+    const ring = i < 8 ? 0 : 1, k = ring ? i - 8 : i, n = ring ? 4 : 8;
+    const a = k / n * TAU + ring * 0.4 + R() * 0.15, r = ring ? 0.06 : 0.14;
+    const cracked = i === 3 || i === 9;
+    const egg = new THREE.SphereGeometry(1, 28, 18, 0, TAU, cracked ? 0.9 : 0, cracked ? PI - 0.9 : PI);
+    egg.scale(0.04, 0.055, 0.04);
+    const eg = grp(g, Math.cos(a) * r * 1.2, 0.07 + ring * 0.012, Math.sin(a) * r, 0, -a, 0);
+    const tilt = grp(eg, 0, 0, 0, 0, 0, -(ring ? 0.35 : 0.65));
+    add(tilt, egg, cracked ? mat(0xffffff, { map: shellT, roughness: 0.75, side: THREE.DoubleSide }) : shell);
+    if (cracked) { add(tilt, new THREE.CircleGeometry(0.034, 20), inner, 0, 0.028, 0, -PI / 2, 0, 0); const frag = []; for (let f = 0; f < 4; f++) frag.push(gx(new THREE.CircleGeometry(0.01 + R() * 0.008, 5), 0.05 + R() * 0.03, -0.03, (R() - 0.5) * 0.06, -PI / 2, R() * 3, 0)); merged(eg, frag, shell); }
+  }
+  // soporte negro y placa
+  CY(g, 0.32, 0.33, 0.02, mat(0x14141a, { roughness: 0.3, env: true, envI: 0.4 }), 0, 0.0, 0, 0, 0, 0, 64).scale.set(1.15, 1, 0.9);
+  plaque(g, 'HADROSAURIDAE', 'Cretácico tardío · 70 Ma', 0.11, 0.016, 0, 0.012, 0.29, -0.6, 0);
+  return ground(g);
+};
+
+// ---------- Espejo humeante de obsidiana ----------
+BUILDERS_C.espejo_obsidiana = () => {
+  const g = new THREE.Group();
+  const obs = new THREE.MeshPhysicalMaterial({ color: 0x010102, roughness: 0.06, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.0, envMapIntensity: 0.45 });
+  const gl = gold(0.2);
+  const turqT = canvasTex('C_turquesa', 512, 128, (c, w, h) => { const R = rng(33); c.fillStyle = '#1a1a14'; c.fillRect(0, 0, w, h); for (let x = 0; x < w; x += 0) { const tw = 10 + R() * 14; for (let y = 0; y < h; y += 0) { const th = 10 + R() * 14; c.fillStyle = `rgb(${40 + R() * 40},${150 + R() * 50},${150 + R() * 40})`; c.fillRect(x + 1.5, y + 1.5, tw - 3, th - 3); y += th; } x += tw; } }, true);
+  const turq = mat(0xffffff, { map: turqT, roughness: 0.3, env: true, envI: 0.6 });
+  const M = grp(g, 0, 0.24, 0, -0.08, 0, 0);
+  // disco de obsidiana ligeramente convexo
+  add(M, latheGeo(smooth([[0, 0.012], [0.08, 0.009], [0.13, 0.002], [0.132, 0]], 20), 96), obs, 0, 0, 0, PI / 2, 0, 0);
+  // marco de oro con anillo de mosaico de turquesa
+  add(M, bandGeo(0.132, 0.022, 0.012, 128), gl, 0, 0, 0, PI / 2, 0, 0);
+  const ring = new THREE.RingGeometry(0.144, 0.18, 128, 1);
+  { const uv = ring.attributes.uv, p = ring.attributes.position; for (let i = 0; i < uv.count; i++) { const a = Math.atan2(p.getY(i), p.getX(i)); uv.setXY(i, (a / TAU + 0.5) * 8, (Math.hypot(p.getX(i), p.getY(i)) - 0.144) / 0.036); } }
+  add(M, ring, turq, 0, 0, 0.004);
+  TO(M, 0.18, 0.005, gl, 0, 0, 0.004, 0, 0, 0, TAU, 128);
+  TO(M, 0.144, 0.004, gl, 0, 0, 0.006, 0, 0, 0, TAU, 128);
+  // rayos de oro y plumas en el exterior
+  for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; EXS(M, poly([[-0.012, 0], [0.012, 0], [0, 0.04]]), 0.003, gl, Math.cos(a) * 0.185, Math.sin(a) * 0.185, 0.0, 0, 0, a - PI / 2, 0.001); }
+  const fT = canvasTex('C_pluma_espejo', 64, 256, (c, w, h) => { c.clearRect(0, 0, w, h); const gr = c.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, '#0a4a2a'); gr.addColorStop(1, '#3ac08a'); c.fillStyle = gr; c.beginPath(); c.moveTo(w / 2, 0); c.bezierCurveTo(w, h * 0.3, w, h * 0.8, w / 2, h); c.bezierCurveTo(0, h * 0.8, 0, h * 0.3, w / 2, 0); c.fill(); c.strokeStyle = 'rgba(240,230,200,0.7)'; c.beginPath(); c.moveTo(w / 2, 0); c.lineTo(w / 2, h); c.stroke(); });
+  for (let i = 0; i < 9; i++) { const a = -PI / 2 + (i - 4) * 0.16; const f = P(M, 0.03, 0.12, fT, Math.cos(a) * 0.24, Math.sin(a) * 0.24, -0.004, 0, 0, a + PI / 2, { transparent: true, alphaTest: 0.4, double: true }); f.castShadow = false; }
+  // humo que flota sobre la superficie
+  const smokeT = canvasTex('C_humo', 256, 256, (c, w, h) => { const R = rng(9); c.clearRect(0, 0, w, h); for (let i = 0; i < 60; i++) { const x = w / 2 + (R() - 0.5) * w * 0.7, y = h / 2 + (R() - 0.5) * h * 0.7, r = 20 + R() * 50; const gr = c.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(200,210,220,0.02)'); gr.addColorStop(1, 'rgba(200,210,220,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, h); } });
+  const sm = P(M, 0.24, 0.24, smokeT, 0, 0, 0.016, 0, 0, 0, { transparent: true }); sm.material.depthWrite = false; sm.castShadow = false;
+  // atril de basalto
+  const bas = mat(0xffffff, { map: stoneTex('basalto_espejo', [44, 42, 40]), roughness: 0.7 });
+  RB(g, 0.3, 0.04, 0.16, 0.008, bas, 0, 0.02, 0);
+  for (const s of [-1, 1]) add(g, swGeo([[s * 0.09, 0.04, -0.01], [s * 0.13, 0.1, -0.025], [s * 0.12, 0.17, -0.03]], [0.014, 0.012, 0.009], 10, 14), bas);
+  B(g, 0.2, 0.025, 0.05, bas, 0, 0.055, 0.0);
+  plaque(g, 'TEZCATLIPOCA', 'Espejo humeante', 0.09, 0.015, 0, 0.022, 0.0805, 0, 0);
   return ground(g);
 };

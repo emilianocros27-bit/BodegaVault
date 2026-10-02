@@ -1,7 +1,7 @@
 // Objetos nuevos (grupo D): cultura pop, historia de la tecnología, lujo, utilería de cine/TV,
 // cultura mexicana, misterio y leyendas de los juguetes. Solo alto nivel (épico, legendario, único, exótico).
 import { THREE, mat, metal, plastic, glossy, glass, emissive, C, canvasTex, labelTex, artTex, rng, add, B, RB, CY, SP, TO, CO, LA, TU, P, EX, EXS, grp, SW } from './modelkit.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // { id, name, category, rarity, baseValue, desc }
@@ -1468,5 +1468,942 @@ BUILDERS_D.craneo_alien_resina = () => {
   // tenue luz verde desde la base
   add(g, new THREE.PlaneGeometry(0.2, 0.14), new THREE.MeshBasicMaterial({ color: 0x30ff90, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }), 0, y0 + 0.002, 0, -PI / 2, 0, 0).castShadow = false;
   plaque(g, 'ESPÉCIMEN 47-R', 'Hallado en Roswell, N.M. · 1947', 0.12, 0.018, 0, 0.015, 0.1005, 0, 0, { bg: '#1a1a1a', fg: '#7aff9a', frame: C.chrome() });
+  return ground(g);
+};
+
+// =====================================================================
+//  LEGENDARIOS / ÚNICOS / EXÓTICOS (segunda tanda)
+// =====================================================================
+// deformación por vértice con vector (v) => void
+function warpV(geo, fn) {
+  const p = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); fn(v); p.setXYZ(i, v.x, v.y, v.z); }
+  geo.computeVertexNormals();
+  return geo;
+}
+// hundimientos/abultamientos suaves: { c:[x,y,z], r, d, dir:[x,y,z] }
+function sculpt(geo, list) {
+  return warpV(geo, (v) => {
+    for (const h of list) {
+      const dx = v.x - h.c[0], dy = v.y - h.c[1], dz = v.z - h.c[2];
+      const dd = Math.sqrt(dx * dx + dy * dy + dz * dz) / h.r;
+      if (dd < 1) { const k = h.d * Math.pow(1 - dd * dd, 2); v.x += h.dir[0] * k; v.y += h.dir[1] * k; v.z += h.dir[2] * k; }
+    }
+  });
+}
+const ell = (sx, sy, sz, ws = 48, hs = 32) => new THREE.SphereGeometry(1, ws, hs).scale(sx, sy, sz);
+const smoothG = (geo) => mergeVertices(geo);
+
+// ---------- Cabeza olmeca en miniatura ----------
+BUILDERS_D.cabeza_olmeca_mini = () => {
+  const g = new THREE.Group();
+  const bas = mat(0xffffff, { map: stoneTex('olmeca2', [96, 92, 84], { spots: 500, veins: 1 }), roughness: 0.78 });
+  const nz = noise3(1200);
+  // cabeza: bloque redondeado, cara plana y ancha
+  const head = smoothG(new THREE.SphereGeometry(1, 80, 60));
+  head.scale(0.13, 0.16, 0.12);
+  warpV(head, (v) => {
+    if (v.y < -0.1) v.y = -0.1 + (v.y + 0.1) * 0.3; // corte plano en la base
+    if (v.z > 0.05) v.z = 0.05 + (v.z - 0.05) * 0.55; // cara aplanada
+    v.x *= 1.05 + Math.max(0, -v.y) * 0.6; // mejillas anchas
+  });
+  sculpt(head, [
+    { c: [-0.045, 0.035, 0.08], r: 0.04, d: 0.022, dir: [0, 0, -1] }, { c: [0.045, 0.035, 0.08], r: 0.04, d: 0.022, dir: [0, 0, -1] }, // cuencas
+    { c: [-0.045, 0.033, 0.066], r: 0.024, d: 0.014, dir: [0, 0, 1] }, { c: [0.045, 0.033, 0.066], r: 0.024, d: 0.014, dir: [0, 0, 1] }, // párpados hinchados
+    { c: [0, 0.07, 0.08], r: 0.06, d: 0.008, dir: [0, 0, 1] }, // ceño
+    { c: [0, -0.005, 0.085], r: 0.045, d: 0.03, dir: [0, -0.1, 1] }, // nariz ancha
+    { c: [-0.028, -0.02, 0.09], r: 0.022, d: 0.012, dir: [0, 0, 1] }, { c: [0.028, -0.02, 0.09], r: 0.022, d: 0.012, dir: [0, 0, 1] }, // aletas
+    { c: [0, -0.065, 0.085], r: 0.05, d: 0.026, dir: [0, 0, 1] }, // labios gruesos
+    { c: [0, -0.066, 0.115], r: 0.04, d: 0.006, dir: [0, 0, -1] }, // comisura
+    { c: [0, -0.05, 0.1], r: 0.03, d: 0.01, dir: [0, -1, 0] },
+  ]);
+  displace(head, (x, y, z) => nz(x * 30, y * 30, z * 30, 3) * 0.002);
+  add(g, head, bas, 0, 0.15, 0);
+  // casco ceñido con banda y orejeras
+  const cap = smoothG(new THREE.SphereGeometry(1, 80, 40, 0, TAU, 0, PI * 0.5));
+  cap.scale(0.142, 0.13, 0.13);
+  warpV(cap, (v) => { if (v.z > 0.06) v.z = 0.06 + (v.z - 0.06) * 0.6; v.x *= 1.05; });
+  displace(cap, (x, y, z) => nz(x * 25 + 3, y * 25, z * 25, 3) * 0.0025);
+  cap.scale(1, 0.75, 1);
+  add(g, cap, bas, 0, 0.245, -0.008);
+  add(g, bandGeoD(0.138, 0.026, 0.012), bas, 0, 0.25, -0.008).scale.set(1.08, 1, 0.98);
+  for (let i = 0; i < 7; i++) { const a = PI / 2 - 0.6 + i * 0.2; add(g, ell(0.011, 0.014, 0.01, 16, 12), bas, Math.cos(a) * 0.152, 0.262, Math.sin(a) * 0.136); } // garras de jaguar en la banda
+  for (const s of [-1, 1]) { RB(g, 0.03, 0.15, 0.07, 0.012, bas, s * 0.142, 0.17, -0.02); lathe(g, smooth([[0, 0], [0.024, 0], [0.026, 0.008], [0.012, 0.012], [0, 0.012]], 10), bas, s * 0.158, 0.15, -0.01, 0, 0, s * PI / 2, 24); }
+  // base de madera
+  RB(g, 0.36, 0.05, 0.3, 0.008, woodM('olmeca_base', '#2a1408', { rough: 0.4 }), 0, 0.025, 0);
+  plaque(g, 'SAN LORENZO · OLMECA', 'Réplica en basalto · 1200 a. C.', 0.12, 0.018, 0, 0.026, 0.1505, 0, 0);
+  return ground(g);
+};
+function bandGeoD(r, w, t, seg = 96) { return latheGeo([[r, -w / 2], [r + t, -w / 2], [r + t, w / 2], [r, w / 2], [r, -w / 2]], seg); }
+
+// ---------- Silla de charro con piteado y plata ----------
+BUILDERS_D.silla_charro_plata = () => {
+  const g = new THREE.Group();
+  const pita = tex('piteado', 512, 512, (c, w, h) => {
+    const R = rng(8); c.fillStyle = '#6a3a1a'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2000; i++) { c.fillStyle = `rgba(${R() < 0.5 ? '20,8,2' : '150,90,40'},${R() * 0.15})`; c.fillRect(R() * w, R() * h, 2, 2); }
+    c.strokeStyle = '#e8e0c8'; c.lineWidth = 3;
+    const vine = (x0, y0, x1, y1) => { c.beginPath(); c.moveTo(x0, y0); c.bezierCurveTo(x0 + 80, y0 - 60, x1 - 80, y1 + 60, x1, y1); c.stroke(); };
+    for (let k = 0; k < 4; k++) { vine(20, 60 + k * 120, w - 20, 100 + k * 120); for (let j = 0; j < 8; j++) { const x = 50 + j * 58, y = 80 + k * 120 + Math.sin(j) * 18; c.beginPath(); c.ellipse(x, y, 14, 6, j, 0, TAU); c.stroke(); c.beginPath(); c.arc(x + 12, y - 14, 6, 0, TAU); c.stroke(); } }
+    c.lineWidth = 6; c.strokeRect(6, 6, w - 12, h - 12);
+  }, true);
+  const leather = mat(0xffffff, { map: pita, roughness: 0.6, env: true, envI: 0.3 });
+  const dark = C.leather(0x3a1e0c), silver = metal(0xdcdee2, 0.16), wood = woodM('estribo', '#6a3a1a', { rough: 0.4 });
+  // caballete de madera
+  const st = woodM('caballete', '#5a3a1e', { rough: 0.55 });
+  B(g, 0.08, 0.05, 0.62, st, 0, 0.62, 0);
+  for (const z of [-0.26, 0.26]) for (const s of [-1, 1]) B(g, 0.04, 0.68, 0.04, st, s * 0.07, 0.31, z, 0, 0, s * 0.2);
+  for (const z of [-0.26, 0.26]) B(g, 0.22, 0.03, 0.03, st, 0, 0.18, z);
+  // fuste: asiento curvo y faldones
+  const S = grp(g, 0, 0.66, 0);
+  const seat = new THREE.BoxGeometry(0.32, 0.04, 0.5, 10, 2, 16);
+  warpV(seat, (v) => { const t = v.z / 0.25; v.y += t * t * 0.06 - Math.pow(v.x / 0.16, 2) * 0.04; if (t > 0.7) v.y += (t - 0.7) * 0.12; });
+  add(S, seat, leather);
+  for (const s of [-1, 1]) {
+    const flap = new THREE.PlaneGeometry(0.42, 0.34, 8, 8); flap.translate(0, -0.17, 0);
+    warpV(flap, (v) => { v.z += Math.sin((v.x + 0.21) / 0.42 * PI) * 0.01; });
+    add(S, flap, mat(0xffffff, { map: pita, roughness: 0.6, side: THREE.DoubleSide }), s * 0.17, -0.0, 0.0, 0, s * PI / 2, s * -0.12).scale.set(1, 1, 1);
+    // arciones y fenders (rosaderos)
+    TU(S, [[s * 0.15, 0.0, 0.0], [s * 0.2, -0.18, 0.02], [s * 0.21, -0.36, 0.02]], 0.012, dark, false, 12);
+    const fender = new THREE.PlaneGeometry(0.14, 0.26, 4, 6); fender.translate(0, -0.13, 0);
+    add(S, fender, mat(0xffffff, { map: pita, roughness: 0.6, side: THREE.DoubleSide }), s * 0.205, -0.08, 0.02, 0, s * PI / 2, s * -0.1);
+    // estribo de madera con casquillo de plata
+    const sg = grp(S, s * 0.215, -0.42, 0.02, 0, 0, s * -0.08);
+    const arch = new THREE.Shape(); arch.moveTo(-0.06, 0); arch.lineTo(0.06, 0); arch.lineTo(0.05, 0.1); arch.quadraticCurveTo(0, 0.13, -0.05, 0.1); arch.closePath(); arch.holes.push(rrect(0.08, 0.07, 0.02, 0, 0.05, true));
+    EXS(sg, arch, 0.06, wood, 0, 0, 0, 0, PI / 2, 0, 0.004);
+    RB(sg, 0.065, 0.012, 0.13, 0.004, silver, 0, 0.0, 0);
+  }
+  // cabeza de plata cincelada (horn) y teja trasera
+  const horn = grp(S, 0, 0.06, 0.22);
+  lathe(horn, smooth([[0, 0], [0.025, 0], [0.018, 0.04], [0.02, 0.08], [0.06, 0.1], [0.065, 0.11], [0.06, 0.12], [0, 0.122]], 30), mat(0xffffff, { map: engraveTex('silla_cabeza', '#dcdee2', 'rgba(40,44,50,0.6)'), metalness: 1, roughness: 0.18 }), 0, 0, 0, 0, 0, 0, 40);
+  const cantle = new THREE.TorusGeometry(0.12, 0.02, 10, 32, PI); cantle.scale(1, 0.45, 1.6); add(S, cantle, leather, 0, 0.075, -0.21, -0.25, 0, 0);
+  for (let i = 0; i < 9; i++) { const a = 0.15 + i / 8 * (PI - 0.3); lathe(S, smooth([[0, 0], [0.008, 0], [0, 0.005]], 6), silver, Math.cos(a) * 0.12, 0.075 + Math.sin(a) * 0.054, -0.18, PI / 2 - 0.25, 0, 0, 16); }
+  for (const z of [-0.12, 0.08]) for (const s of [-1, 1]) lathe(S, smooth([[0, 0], [0.018, 0], [0.012, 0.005], [0, 0.007]], 8), silver, s * 0.16, 0.0, z, 0, 0, s * PI / 2, 20); // conchos
+  plaque(g, 'SILLA DE GALA', 'Piteado y plata · Jalisco', 0.1, 0.016, 0, 0.62, 0.312, 0, 0);
+  return ground(g);
+};
+
+// ---------- Sarape de Saltillo ----------
+BUILDERS_D.sarape_saltillo = () => {
+  const g = new THREE.Group();
+  const weave = tex('saltillo', 512, 1024, (c, w, h) => {
+    const R = rng(1850); c.fillStyle = '#6a1a1a'; c.fillRect(0, 0, w, h);
+    const cols = ['#c8261a', '#e8a01a', '#1a6a3a', '#1a3a8a', '#f2e6cc', '#5a1a4a', '#e85a1a'];
+    // fondo de grecas finas (zigzag)
+    for (let y = 0; y < h; y += 8) { c.fillStyle = cols[(y / 8) % cols.length]; for (let x = 0; x < w; x += 16) { c.beginPath(); c.moveTo(x, y + 8); c.lineTo(x + 8, y); c.lineTo(x + 16, y + 8); c.fill(); } }
+    c.fillStyle = 'rgba(80,10,10,0.55)'; c.fillRect(0, 0, w, h);
+    // rombo central concéntrico dentado
+    const cx = w / 2, cy = h / 2;
+    for (let k = 14; k > 0; k--) { c.fillStyle = cols[k % cols.length]; const rx = k * 16, ry = k * 32; c.beginPath(); for (let i = 0; i <= 32; i++) { const t = i / 32 * TAU; const step = (i % 2 ? 0.92 : 1); c.lineTo(cx + Math.sign(Math.cos(t)) * Math.pow(Math.abs(Math.cos(t)), 1) * rx * step, cy + Math.sign(Math.sin(t)) * Math.pow(Math.abs(Math.sin(t)), 1) * ry * step); } c.fill(); }
+    // franjas de las orillas
+    for (let y = 0; y < 60; y += 6) { c.fillStyle = cols[(y / 6) % cols.length]; c.fillRect(0, y, w, 6); c.fillRect(0, h - y - 6, w, 6); }
+    // trama
+    c.fillStyle = 'rgba(0,0,0,0.12)'; for (let x = 0; x < w; x += 2) c.fillRect(x, 0, 1, h);
+  });
+  const cloth = mat(0xffffff, { map: weave, roughness: 1, side: THREE.DoubleSide });
+  // percha de hierro forjado
+  const iron = mat(0x1c1c1c, { roughness: 0.5, metalness: 0.6, env: true, envI: 0.4 });
+  for (const s of [-1, 1]) { CY(g, 0.012, 0.014, 1.2, iron, s * 0.42, 0.6, 0, 0, 0, 0, 12); TU(g, [[s * 0.42, 0.02, -0.14], [s * 0.42, 0.0, 0], [s * 0.42, 0.02, 0.14]], 0.014, iron, false, 10); SP(g, 0.022, iron, s * 0.42, 1.2, 0, 1, 1, 1, 12); }
+  CY(g, 0.014, 0.014, 0.88, woodM('percha_sarape', '#5a3418'), 0, 1.18, 0, 0, 0, PI / 2, 16);
+  // tejido colgante con caída en dos lados
+  const W = 0.72, L = 1.3;
+  const sh = new THREE.PlaneGeometry(W, L, 24, 60);
+  warpV(sh, (v) => {
+    const t = (v.y + L / 2) / L; // 0..1 a lo largo
+    const ang = (t - 0.5) * PI; // dobla sobre la barra
+    const fold = Math.abs(t - 0.5) * L;
+    const side = t < 0.5 ? -1 : 1;
+    const wave = Math.sin(v.x * 18 + t * 4) * 0.008 * fold;
+    v.y = 1.18 + 0.02 - Math.max(0, fold - 0.03);
+    v.z = side * (0.018 + Math.min(fold, 0.03) * 0.6) + wave + side * Math.max(0, fold - 0.03) * 0.04;
+    if (side < 0) v.y -= 0.12; // un lado más largo
+  });
+  add(g, sh, cloth);
+  // flecos
+  const fr = [];
+  for (const [y0, z0] of [[1.2 - (L / 2 - 0.03) - 0.12, -0.04], [1.2 - (L / 2 - 0.03), 0.04]]) for (let i = 0; i < 48; i++) { const x = -W / 2 + (i + 0.5) * W / 48; fr.push(tubeGeo([[x, y0, z0 * 0.9], [x + (i % 2 ? 0.003 : -0.003), y0 - 0.04, z0], [x, y0 - 0.075, z0 * 1.1]], 0.0018, 6, 4)); }
+  merged(g, fr, mat(0xe8dcc0, { roughness: 1 }));
+  return ground(g);
+};
+
+// ---------- Mesa de Talavera poblana ----------
+BUILDERS_D.mesa_talavera = () => {
+  const g = new THREE.Group();
+  const tile = tex('talavera', 256, 256, (c, w, h) => {
+    c.fillStyle = '#f4efe2'; c.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    c.fillStyle = '#1a3a9a'; c.strokeStyle = '#1a3a9a'; c.lineWidth = 5;
+    for (let k = 0; k < 8; k++) { c.save(); c.translate(cx, cy); c.rotate(k * PI / 4); c.beginPath(); c.ellipse(0, -60, 16, 34, 0, 0, TAU); c.fill(); c.restore(); }
+    c.fillStyle = '#e8a01a'; c.beginPath(); c.arc(cx, cy, 30, 0, TAU); c.fill();
+    c.fillStyle = '#1a3a9a'; c.beginPath(); c.arc(cx, cy, 12, 0, TAU); c.fill();
+    for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h]]) { c.beginPath(); c.arc(x, y, 46, 0, TAU); c.fill(); c.fillStyle = '#e8a01a'; c.beginPath(); c.arc(x, y, 22, 0, TAU); c.fill(); c.fillStyle = '#1a3a9a'; }
+    c.strokeStyle = 'rgba(26,58,154,0.6)'; c.lineWidth = 2; c.strokeRect(1, 1, w - 2, h - 2);
+    const R = rng(3); for (let i = 0; i < 300; i++) { c.fillStyle = `rgba(80,60,40,${R() * 0.06})`; c.fillRect(R() * w, R() * h, 2, 2); }
+  }, true);
+  const iron = mat(0x1a1a1a, { roughness: 0.45, metalness: 0.7, env: true, envI: 0.5 });
+  const H = 0.74, Wt = 0.8;
+  // cubierta: azulejos 5x5 con juntas
+  RB(g, Wt + 0.04, 0.04, Wt + 0.04, 0.006, iron, 0, H - 0.02, 0);
+  const tiles = mat(0xffffff, { map: rep(tile, 5, 5), roughness: 0.12, env: true, envI: 0.8 });
+  B(g, Wt, 0.012, Wt, tiles, 0, H + 0.006, 0);
+  // patas de herrería con volutas
+  const legs = [];
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const x = sx * (Wt / 2 - 0.04), z = sz * (Wt / 2 - 0.04);
+    legs.push(tubeGeo([[x, H - 0.04, z], [x * 1.02, H * 0.5, z * 1.02], [x * 0.94, 0.12, z * 0.94], [x * 1.08, 0.015, z * 1.08]], 0.014, 24, 8));
+    const sc = []; for (let i = 0; i <= 30; i++) { const t = i / 30, a = t * TAU * 1.4, r = 0.06 * (1 - t * 0.75); sc.push([x - sx * 0.07 + Math.cos(a) * r * sx * 0.7, H - 0.12 + Math.sin(a) * r, z - sz * 0.07 + Math.cos(a) * r * sz * 0.7]); }
+    legs.push(tubeGeo(sc, 0.007, 40, 6));
+    lathe(g, smooth([[0, 0], [0.03, 0], [0.02, 0.012], [0, 0.016]], 8), iron, x * 1.08, 0, z * 1.08, 0, 0, 0, 16);
+  }
+  // travesaño en X
+  for (const s of [-1, 1]) legs.push(tubeGeo([[-(Wt / 2 - 0.05), 0.22, -s * (Wt / 2 - 0.05)], [0, 0.18, 0], [(Wt / 2 - 0.05), 0.22, s * (Wt / 2 - 0.05)]], 0.009, 16, 6));
+  merged(g, legs, iron);
+  TO(g, 0.05, 0.009, iron, 0, 0.18, 0, PI / 2, 0, 0, TAU, 24);
+  // jarrón de talavera sobre la mesa
+  lathe(g, smooth([[0, 0], [0.04, 0], [0.06, 0.05], [0.065, 0.1], [0.04, 0.15], [0.03, 0.17], [0.04, 0.2], [0.036, 0.2]], 30), mat(0xffffff, { map: rep(tile, 4, 1), roughness: 0.12, env: true, envI: 0.8, side: THREE.DoubleSide }), 0.15, H + 0.012, -0.1, 0, 0, 0, 40);
+  return ground(g);
+};
+
+// ---------- Cámara telemétrica edición oro ----------
+BUILDERS_D.camara_telemetrica_oro = () => {
+  const g = new THREE.Group();
+  const liz = tex('lagarto', 512, 256, (c, w, h) => {
+    const R = rng(51); c.fillStyle = '#3a2a1a'; c.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 10) for (let x = (y / 10 % 2) * 9; x < w; x += 18) { const s = 6 + R() * 5; c.fillStyle = `rgb(${70 + R() * 30},${50 + R() * 20},${30 + R() * 15})`; c.beginPath(); c.ellipse(x, y, s, s * 0.7, 0, 0, TAU); c.fill(); c.strokeStyle = 'rgba(10,6,2,0.6)'; c.lineWidth = 1.2; c.stroke(); }
+  }, true);
+  const au = gold(0.18), skin = mat(0xffffff, { map: liz, roughness: 0.5, env: true, envI: 0.3 });
+  const glassL = mat(0x1a2a3a, { roughness: 0.02, metalness: 0.3, env: true, envI: 1.6 });
+  // estuche abierto de piel
+  const box = C.leather(0x2a1608);
+  RB(g, 0.24, 0.05, 0.16, 0.008, box, 0, 0.025, 0);
+  RB(g, 0.22, 0.006, 0.14, 0.003, velvet('cam_oro', '#1a2a4a'), 0, 0.051, 0);
+  const lid = grp(g, 0, 0.05, -0.08, -1.9, 0, 0); RB(lid, 0.24, 0.02, 0.16, 0.008, box, 0, 0.01, 0.08); RB(lid, 0.22, 0.004, 0.14, 0.002, velvet('cam_oro_t', '#d8c8a0'), 0, -0.001, 0.08);
+  // cuerpo de la cámara
+  const K = grp(g, 0, 0.054, 0.0);
+  const bodyS = rrect(0.138, 0.078, 0.022);
+  EXS(K, bodyS, 0.032, skin, 0, 0.039, 0, 0, 0, 0, 0.002);
+  for (const yy of [0.004, 0.074]) RB(K, 0.14, 0.008, 0.034, 0.004, au, 0, yy, 0);
+  RB(K, 0.14, 0.012, 0.036, 0.005, au, 0, 0.084, 0); // placa superior
+  // ventanas del telémetro y visor
+  for (const [x, w] of [[-0.045, 0.02], [0.012, 0.014], [0.05, 0.016]]) { RB(K, w + 0.004, 0.014, 0.003, 0.002, au, x, 0.066, 0.018); RB(K, w, 0.01, 0.002, 0.001, glassL, x, 0.066, 0.0195); }
+  // perillas: velocidades, rebobinado, disparador
+  lathe(K, smooth([[0, 0], [0.012, 0], [0.012, 0.008], [0.01, 0.01], [0, 0.01]], 10), au, 0.04, 0.09, 0, 0, 0, 0, 32);
+  lathe(K, smooth([[0, 0], [0.014, 0], [0.014, 0.006], [0, 0.006]], 6), au, -0.045, 0.09, 0, 0, 0, 0, 32);
+  CY(K, 0.004, 0.004, 0.006, mat(0x8a1a1a, { roughness: 0.3, env: true }), 0.058, 0.093, 0.004, 0, 0, 0, 12);
+  RB(K, 0.02, 0.006, 0.014, 0.002, au, 0.0, 0.09, 0); // zapata
+  // objetivo con anillos moleteados
+  const L = grp(K, -0.008, 0.039, 0.016, PI / 2, 0, 0);
+  const knurl = latheGeo([[0.019, 0], [0.019, 0.012]], 64); warpV(knurl, (v) => { const a = Math.atan2(v.z, v.x); const k = 1 + 0.03 * Math.sign(Math.sin(a * 32)); v.x *= k; v.z *= k; });
+  lathe(L, [[0.016, 0], [0.022, 0], [0.022, 0.006], [0.02, 0.008]], au, 0, 0, 0, 0, 0, 0, 48);
+  add(L, knurl, au, 0, 0.008, 0);
+  lathe(L, smooth([[0.019, 0.02], [0.017, 0.03], [0.017, 0.036], [0.016, 0.038]], 8), mat(0x141414, { roughness: 0.3, env: true }), 0, 0, 0, 0, 0, 0, 48);
+  add(L, new THREE.CircleGeometry(0.014, 48), glassL, 0, 0.0365, 0, -PI / 2, 0, 0);
+  TO(L, 0.0142, 0.0012, au, 0, 0.037, 0, PI / 2, 0, 0, TAU, 48);
+  // correa
+  TU(K, [[-0.07, 0.07, 0], [-0.1, 0.04, 0.03], [-0.09, -0.04, 0.05], [0.0, -0.05, 0.06], [0.09, -0.04, 0.05], [0.1, 0.04, 0.03], [0.07, 0.07, 0]], 0.003, skin, false, 40);
+  P(g, 0.1, 0.012, labelTex('EDICIÓN ORO · 0347/1000', { bg: '#1a2a4a', fg: '#e2b04a', w: 1024, h: 120, font: 'bold 60px Georgia' }), 0, 0.03, 0.0805, 0, 0, 0, { rough: 0.4 });
+  return ground(g);
+};
+
+// ---------- Cifradora mecánica de ruedas de pines ----------
+BUILDERS_D.cifradora_ruedas = () => {
+  const g = new THREE.Group();
+  const olive = mat(0xffffff, { map: wornTex('cifradora', '#4a5236', { chipCol: '#8a8a7a' }), roughness: 0.6, metalness: 0.4, env: true, envI: 0.4 });
+  const blk = mat(0x1a1a1a, { roughness: 0.5 }), steel = C.steel(), alu = metal(0xc8ccd0, 0.3);
+  // caja con tapa abierta
+  RB(g, 0.18, 0.09, 0.13, 0.006, olive, 0, 0.045, 0);
+  const lid = grp(g, 0, 0.09, -0.065, -1.95, 0, 0); RB(lid, 0.18, 0.03, 0.13, 0.006, olive, 0, 0.015, 0.065);
+  P(lid, 0.12, 0.07, labelTex('CONVERTER M-209', { bg: '#d8d0b8', fg: '#1a1a1a', w: 512, h: 300, font: 'bold 40px monospace', sub: 'INSTRUCCIONES · SECRETO', subFont: '24px monospace' }), 0, 0.031, 0.065, -PI / 2, 0, PI, { rough: 0.8 });
+  // placa superior y 6 ruedas de pines con letras
+  B(g, 0.17, 0.004, 0.12, alu, 0, 0.092, 0);
+  const wheelTex = tex('rueda_letras', 512, 64, (c, w, h) => { c.fillStyle = '#d8d8d0'; c.fillRect(0, 0, w, h); c.fillStyle = '#1a1a1a'; c.font = 'bold 30px monospace'; c.textAlign = 'center'; const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; for (let i = 0; i < 26; i++) c.fillText(L[i], (i + 0.5) / 26 * w, 42); });
+  const wheels = [], pins = [];
+  for (let i = 0; i < 6; i++) {
+    const z = -0.04 + i * 0.016, r = 0.024 - i * 0.0012;
+    const wg = grp(g, 0.01, 0.094, z, 0, 0, PI / 2);
+    add(wg, new THREE.CylinderGeometry(r, r, 0.008, 40, 1, true), mat(0xffffff, { map: wheelTex, roughness: 0.5 }), 0, 0, 0, 0, 0, 0);
+    for (let k = 0; k < 20; k++) { const a = k / 20 * TAU; pins.push(gx(new THREE.CylinderGeometry(0.0009, 0.0009, 0.004, 5), 0.01 + (k % 2 ? 0.003 : -0.003), 0.094 + Math.sin(a) * (r + 0.001), z + 0 * Math.cos(a), 0, 0, 0)); }
+    wheels.push(gx(new THREE.CylinderGeometry(r * 0.6, r * 0.6, 0.009, 24), 0.01, 0.094, z, PI / 2, 0, 0));
+  }
+  merged(g, wheels, steel); merged(g, pins, steel);
+  // rueda indicadora, manivela lateral y cinta impresa
+  lathe(g, smooth([[0, 0], [0.022, 0], [0.022, 0.01], [0, 0.012]], 8), blk, -0.055, 0.094, 0.02, 0, 0, 0, 32);
+  P(g, 0.03, 0.03, tex('dial_cif', 128, 128, (c, w, h) => { c.fillStyle = '#1a1a1a'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8e0c8'; c.font = 'bold 12px monospace'; c.textAlign = 'center'; for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; c.fillText('ABCDEFGHIJKLMNOPQRSTUVWXYZ'[i], 64 + Math.cos(a) * 50, 68 + Math.sin(a) * 50); } }), -0.055, 0.107, 0.02, -PI / 2, 0, 0);
+  const cr = grp(g, 0.092, 0.05, 0.0);
+  CY(cr, 0.006, 0.006, 0.012, steel, 0.006, 0, 0, 0, 0, PI / 2, 12); B(cr, 0.006, 0.06, 0.008, steel, 0.014, -0.025, 0); CY(cr, 0.006, 0.006, 0.03, blk, 0.028, -0.05, 0, 0, 0, PI / 2, 12);
+  const tape = tex('cinta_cif', 512, 32, (c, w, h) => { c.fillStyle = '#efe8d0'; c.fillRect(0, 0, w, h); c.fillStyle = '#1a2a6a'; c.font = 'bold 20px monospace'; c.fillText('QZVKA RTMEO PLXWN BUSAG HDYIF', 8, 23); });
+  add(g, ribbonGeo([[-0.09, 0.06, 0.03], [-0.12, 0.05, 0.05], [-0.15, 0.02, 0.07], [-0.2, 0.004, 0.09], [-0.26, 0.002, 0.07]], 0.012, [0, 1, 0], 40), mat(0xffffff, { map: tape, roughness: 0.9, side: THREE.DoubleSide }));
+  return ground(g);
+};
+
+// ---------- Computadora casera de 1976 en estuche de koa ----------
+BUILDERS_D.computadora_casera_1976 = () => {
+  const g = new THREE.Group();
+  const koa = woodM('koa', '#8a4a1a', { flame: 1.2, rough: 0.35 });
+  // estuche: base trapezoidal (teclado inclinado al frente) y tapa de acrílico ahumado
+  const prof = poly([[-0.17, 0], [0.17, 0], [0.17, 0.1], [0.0, 0.1], [-0.17, 0.05]]);
+  EXS(g, prof, 0.44, koa, 0, 0, 0, 0, PI / 2, 0, 0.004);
+  // placa de circuito (vista por el acrílico)
+  const pcbT = pcbTex('apple1', { w: 512, h: 256, base: '#1a5a2a' });
+  const top = grp(g, 0, 0.1, -0.09);
+  B(top, 0.4, 0.003, 0.15, texM(pcbT, { roughness: 0.45 }), 0, 0.0015, 0);
+  merged(top, chipsGeo(Array.from({ length: 40 }, (_, i) => [0.026, 0.008, -0.17 + (i % 10) * 0.034, -0.055 + Math.floor(i / 10) * 0.032, 0.004])).map(ge => gx(ge, 0, 0.003, 0)), mat(0x141414, { roughness: 0.4 }));
+  for (let i = 0; i < 6; i++) CY(top, 0.007, 0.007, 0.018, mat(0x2a4aa0, { roughness: 0.3 }), 0.17 + (i % 2) * 0.018, 0.012, -0.05 + Math.floor(i / 2) * 0.03, 0, 0, 0, 14);
+  const rim = []; for (const z of [-0.08, 0.08]) rim.push(gx(new THREE.BoxGeometry(0.44, 0.024, 0.012), 0, 0.012, z)); for (const x of [-0.214, 0.214]) rim.push(gx(new THREE.BoxGeometry(0.012, 0.024, 0.17), x, 0.012, 0)); merged(top, rim, koa);
+  const acr = B(top, 0.42, 0.003, 0.15, glassD(0x3a2a20, 0.3), 0, 0.023, 0); acr.castShadow = false;
+  // teclado
+  const kb = grp(g, 0, 0.081, 0.085, Math.atan2(0.05, 0.17), 0, 0);
+  RB(kb, 0.33, 0.01, 0.11, 0.003, mat(0x2a2a2a, { roughness: 0.6 }), 0, 0, 0);
+  const keys = [], keysG = [];
+  const capT = tex('teclas_1976', 512, 256, (c, w, h) => { c.fillStyle = '#e8e4d8'; c.fillRect(0, 0, w, h); c.fillStyle = '#1a1a1a'; c.font = 'bold 22px monospace'; c.textAlign = 'center'; const rows = ['1234567890:-', 'QWERTYUIOP@', 'ASDFGHJKL;', 'ZXCVBNM,./']; rows.forEach((r, j) => [...r].forEach((ch, i) => c.fillText(ch, (i + 0.5) / 12 * w, (j + 0.65) / 4 * h))); });
+  const capM = mat(0xffffff, { map: capT, roughness: 0.4 });
+  for (let j = 0; j < 4; j++) for (let i = 0; i < 12 - (j > 1 ? 1 + (j - 1) : 0); i++) {
+    const ge = new RoundedBoxGeometry(0.019, 0.012, 0.019, 2, 0.003);
+    const uv = ge.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, (i + uv.getX(k)) / 12, 1 - (j + 1 - uv.getY(k)) / 4);
+    keys.push(gx(ge, -0.13 + i * 0.023 + j * 0.006, 0.01, -0.04 + j * 0.024));
+  }
+  merged(kb, keys, capM);
+  RB(kb, 0.13, 0.012, 0.019, 0.003, mat(0xe8e4d8, { roughness: 0.4 }), 0.0, 0.01, 0.058);
+  // placa de latón y cassette
+  P(g, 0.08, 0.016, labelTex('PROTOTYPE · 1976', { bg: '#c9a24e', fg: '#3a2608', w: 512, h: 100, font: 'bold 44px Georgia' }), 0.12, 0.045, 0.2201, 0, 0, 0, { rough: 0.35 });
+  RB(g, 0.1, 0.016, 0.065, 0.003, mat(0xe8e4d8, { roughness: 0.4 }), 0.26, 0.008, 0.06);
+  P(g, 0.06, 0.03, labelTex('BASIC', { bg: '#f2ead0', fg: '#1a2a6a', w: 256, h: 128, font: 'bold 48px monospace' }), 0.26, 0.0165, 0.06, -PI / 2, 0, 0);
+  return ground(g);
+};
+
+// ---------- Gargantilla de zafiros en busto ----------
+BUILDERS_D.gargantilla_zafiros = () => {
+  const g = new THREE.Group();
+  const vel = velvet('busto', '#14141a');
+  // busto de terciopelo: cuello y hombros
+  // torso: hombros anchos y pecho plano; cuello y remate redondeado
+  const torso = smoothG(new THREE.SphereGeometry(1, 64, 40, 0, TAU, 0, PI * 0.62));
+  torso.scale(0.15, 0.13, 0.075);
+  warpV(torso, (v) => { const t = v.y / 0.13; v.x *= 1 + Math.max(0, 0.6 - t) * 0.15; if (t > 0.7) { v.x *= 1 - (t - 0.7) * 0.9; v.z *= 1 - (t - 0.7) * 0.5; } });
+  add(g, torso, vel, 0, 0.1, 0);
+  add(g, latheGeo([[0.105, 0], [0.105, 0.0], [0.12, 0.04], [0.135, 0.1]], 48).scale(1.1, 1, 0.55), vel, 0, 0.0, 0);
+  lathe(g, smooth([[0.048, 0], [0.044, 0.06], [0.042, 0.1], [0.046, 0.11], [0.03, 0.125], [0, 0.128]], 20), vel, 0, 0.19, 0, 0, 0, 0, 48);
+  lathe(g, smooth([[0, 0], [0.09, 0], [0.09, 0.02], [0.06, 0.04], [0.03, 0.06], [0, 0.06]], 16), lacquer(0x0e0e10), 0, 0, 0, 0, 0, 0, 48);
+  // gargantilla: collar de brillantes en platino con caída de zafiros
+  const pt = whiteGold(), sap = gem(0x1a3ab8, { transmission: 0.45, opacity: 0.92, emissive: 0x0a1a5a, ei: 0.35 });
+  const neckY = 0.255, cr = 0.06;
+  const pts = []; for (let i = 0; i <= 64; i++) { const a = -PI * 0.95 + i / 64 * PI * 0.9; pts.push([Math.cos(a + PI / 2) * cr * 1.0, neckY - Math.pow(Math.sin(a + PI / 2), 2) * 0.0 - (1 - Math.abs(i - 32) / 32) * 0.06, Math.sin(a + PI / 2) * cr * 0.85 + 0.002]); }
+  // la cadena rodea el frente del cuello y baja hacia el escote
+  const chain = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = PI * (0.08 + t * 0.84); chain.push([Math.cos(a) * 0.07 * (1 + Math.sin(a) * 0.4), neckY - 0.01 - Math.sin(a) * 0.055, Math.sin(a) * 0.055 + 0.012]); }
+  TU(g, chain, 0.0016, pt, false, 120);
+  stonesAlong(g, chain.filter((_, i) => i % 1 === 0), 0.0028, diamond(), (p) => [PI / 2 + 0.6, 0, 0]);
+  // siete zafiros de pera colgando con halo
+  for (let k = 0; k < 7; k++) {
+    const t = 0.2 + k / 6 * 0.6, a = PI * (0.08 + t * 0.84);
+    const x = Math.cos(a) * 0.07 * (1 + Math.sin(a) * 0.4), y = neckY - 0.012 - Math.sin(a) * 0.055, z = Math.sin(a) * 0.055 + 0.016;
+    const s = k === 3 ? 1.6 : 1 - Math.abs(k - 3) * 0.1;
+    const pg = grp(g, x, y - 0.012 * s, z, 0.55, 0, 0);
+    const pear = latheGeo(smooth([[0, -0.01], [0.006, -0.006], [0.0075, 0.0], [0.005, 0.006], [0, 0.011]], 16), 12); pear.scale(s, s, s * 0.6);
+    add(pg, pear, sap);
+    TO(pg, 0.0085 * s, 0.0012, pt, 0, 0, 0, 0, 0, 0, TAU, 24);
+    stonesAlong(pg, Array.from({ length: 10 }, (_, i) => { const b = i / 10 * TAU; return [Math.cos(b) * 0.0092 * s, Math.sin(b) * 0.0092 * s, 0.001]; }), 0.0012, diamond(), () => [PI / 2, 0, 0]);
+  }
+  plaque(g, 'ZAFIROS DE CEILÁN', 'Platino y brillantes', 0.09, 0.015, 0, 0.032, 0.083, -0.6, 0);
+  return ground(g);
+};
+
+// ---------- Copa de campeón mundial (réplica) ----------
+BUILDERS_D.copa_campeon_mundial = () => {
+  const g = new THREE.Group();
+  const au = gold(0.16), mal = mat(0xffffff, { map: tex('malaquita', 512, 128, (c, w, h) => { c.fillStyle = '#0e5a3a'; c.fillRect(0, 0, w, h); for (let k = 0; k < 40; k++) { c.strokeStyle = k % 2 ? 'rgba(10,40,25,0.7)' : 'rgba(80,190,130,0.5)'; c.lineWidth = 2 + (k % 3); c.beginPath(); for (let x = 0; x <= w; x += 4) c.lineTo(x, k * 3.5 + Math.sin(x / 40 + k * 0.3) * 10); c.stroke(); } }, true), roughness: 0.15, env: true, envI: 0.8 });
+  // base: anillos de oro y bandas de malaquita
+  lathe(g, smooth([[0, 0], [0.065, 0], [0.066, 0.006], [0.062, 0.01]], 10), au, 0, 0, 0, 0, 0, 0, 64);
+  add(g, latheGeo([[0.062, 0.01], [0.062, 0.022], [0.06, 0.024], [0.06, 0.036], [0.062, 0.038]], 64), mal);
+  lathe(g, [[0.062, 0.038], [0.064, 0.04], [0.062, 0.044], [0, 0.044]], au, 0, 0, 0, 0, 0, 0, 64);
+  // espirales que suben abrazando el mundo (dos figuras estilizadas por lado)
+  const sp = [];
+  for (let k = 0; k < 4; k++) {
+    const a0 = k / 4 * TAU, pts = [];
+    for (let i = 0; i <= 30; i++) { const t = i / 30, a = a0 + t * PI * 0.85, r = 0.056 - Math.sin(t * PI) * 0.03 + t * 0.008; pts.push([Math.cos(a) * r, 0.044 + t * 0.21, Math.sin(a) * r]); }
+    sp.push(swGeo(pts, (t) => 0.012 - Math.sin(t * PI) * 0.004, 12, 40, 0.55));
+  }
+  merged(g, sp, au);
+  lathe(g, smooth([[0, 0.044], [0.03, 0.05], [0.018, 0.12], [0.03, 0.2], [0.04, 0.25], [0, 0.26]], 30), au, 0, 0, 0, 0, 0, 0, 48);
+  // brazos que sostienen el globo
+  for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + PI * 0.85; add(g, swGeo([[Math.cos(a) * 0.045, 0.24, Math.sin(a) * 0.045], [Math.cos(a) * 0.055, 0.27, Math.sin(a) * 0.055], [Math.cos(a) * 0.04, 0.3, Math.sin(a) * 0.04]], [0.007, 0.006, 0.005], 8, 12), au); }
+  // globo con continentes en relieve
+  const globeT = tex('globo_copa', 512, 256, (c, w, h) => { c.fillStyle = '#c8962a'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(80,50,5,0.6)'; c.lineWidth = 1.5; for (let i = 1; i < 12; i++) { c.beginPath(); c.moveTo(i / 12 * w, 0); c.lineTo(i / 12 * w, h); c.stroke(); } for (let j = 1; j < 6; j++) { c.beginPath(); c.moveTo(0, j / 6 * h); c.lineTo(w, j / 6 * h); c.stroke(); } c.fillStyle = '#f2c860'; const R = rng(1930); for (let k = 0; k < 9; k++) { c.beginPath(); const x = R() * w, y = 40 + R() * (h - 80); for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; c.lineTo(x + Math.cos(a) * (20 + R() * 40), y + Math.sin(a) * (14 + R() * 26)); } c.fill(); } });
+  add(g, new THREE.SphereGeometry(0.052, 48, 32), mat(0xffffff, { map: globeT, metalness: 1, roughness: 0.22, bumpMap: globeT, bumpScale: 0.003 }), 0, 0.345, 0);
+  // pedestal negro con placa
+  RB(g, 0.2, 0.05, 0.2, 0.008, lacquer(0x0e0e10), 0, -0.025, 0);
+  plaque(g, 'CAMPEÓN DEL MUNDO', 'Réplica oficial', 0.1, 0.016, 0, -0.025, 0.1005, 0, 0);
+  return ground(g);
+};
+
+// ---------- Reloj de mesa de esmalte guilloché ----------
+BUILDERS_D.reloj_mesa_guilloche = () => {
+  const g = new THREE.Group();
+  const pink = new THREE.MeshPhysicalMaterial({ map: guillocheTex('rosa', '#e8889c', 'rgba(140,40,70,0.45)', { rays: 24, rings: 50 }), roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.03, metalness: 0.25, envMapIntensity: 1.3 });
+  const au = gold(0.18), rose = roseGold(), pearl = mat(0xf6f0e6, { roughness: 0.15, env: true, envI: 1.0 });
+  // cuerpo cuadrado con remate en arco, sobre patas de bola
+  const sh = new THREE.Shape(); sh.moveTo(-0.06, 0); sh.lineTo(0.06, 0); sh.lineTo(0.06, 0.11); sh.quadraticCurveTo(0.06, 0.14, 0.0, 0.15); sh.quadraticCurveTo(-0.06, 0.14, -0.06, 0.11); sh.closePath();
+  const body = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: true, bevelSize: 0.003, bevelThickness: 0.003, bevelSegments: 3, curveSegments: 32 });
+  { const uv = body.attributes.uv, p = body.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) + 0.075) / 0.15, (p.getY(i) + 0.0) / 0.15); }
+  add(g, body, pink, 0, 0.015, -0.015);
+  // marco de perlas y laureles
+  const outline = sh.getSpacedPoints(80);
+  for (const [i, p] of outline.entries()) if (i % 2 === 0) SP(g, 0.0026, pearl, p.x * 1.02, 0.015 + p.y * 1.0 + (p.y < 0.001 ? 0.002 : 0), 0.0175, 1, 1, 1, 10);
+  TU(g, outline.map(p => [p.x * 0.92, 0.015 + 0.006 + p.y * 0.92, 0.0175]), 0.0012, rose, true, 160);
+  // esfera blanca de esmalte con números y manecillas
+  const dial = tex('dial_guil', 256, 256, (c, w, h) => { c.fillStyle = '#f8f4ec'; c.fillRect(0, 0, w, h); c.fillStyle = '#1a1a1a'; c.font = 'bold 22px Georgia'; c.textAlign = 'center'; c.textBaseline = 'middle'; for (let i = 1; i <= 12; i++) { const a = i / 12 * TAU - PI / 2; c.fillText(['I', 'II', 'III', 'IIII', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][i - 1], w / 2 + Math.cos(a) * 96, h / 2 + Math.sin(a) * 96); } });
+  const dy = 0.015 + 0.075;
+  CY(g, 0.034, 0.034, 0.004, au, 0, dy, 0.017, PI / 2, 0, 0, 48);
+  add(g, new THREE.CircleGeometry(0.03, 48), mat(0xffffff, { map: dial, roughness: 0.2, env: true, envI: 0.6 }), 0, dy, 0.0192);
+  TO(g, 0.031, 0.0018, au, 0, dy, 0.0192, 0, 0, 0, TAU, 48);
+  for (const [l, a] of [[0.018, 2.3], [0.025, 0.2]]) { const hg = grp(g, 0, dy, 0.02, 0, 0, a); B(hg, 0.0018, l, 0.0006, au, 0, l / 2, 0); }
+  // guirnalda y lazo de oro de colores arriba
+  for (let k = 0; k < 9; k++) { const a = PI * 0.15 + k / 8 * PI * 0.7; SP(g, 0.004, k % 2 ? rose : mat(0x8ab07a, { metalness: 1, roughness: 0.25 }), Math.cos(a) * 0.05, dy + Math.sin(a) * 0.05, 0.019, 1.4, 0.7, 0.6, 10); }
+  TO(g, 0.008, 0.002, au, -0.008, 0.162, 0.0, 0, 0, 0.6, TAU, 16); TO(g, 0.008, 0.002, au, 0.008, 0.162, 0.0, 0, 0, -0.6, TAU, 16); SP(g, 0.004, au, 0, 0.162, 0);
+  // base escalonada y patas de bola
+  RB(g, 0.14, 0.012, 0.05, 0.003, au, 0, 0.012, 0);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) SP(g, 0.006, au, sx * 0.06, 0.006, sz * 0.018, 1, 1, 1, 12);
+  // soporte trasero
+  B(g, 0.01, 0.12, 0.004, rose, 0, 0.07, -0.04, -0.3, 0, 0);
+  return ground(g);
+};
+
+// ---------- Modelo de satélite de museo ----------
+BUILDERS_D.modelo_satelite = () => {
+  const g = new THREE.Group();
+  const foilT = tex('foil', 256, 256, (c, w, h) => { const R = rng(9); c.fillStyle = '#d8a83a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 60; i++) { c.strokeStyle = `rgba(${R() < 0.5 ? '255,240,180' : '120,80,20'},${0.2 + R() * 0.3})`; c.lineWidth = 1 + R() * 3; c.beginPath(); let x = R() * w, y = R() * h; c.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (R() - 0.5) * 80; y += (R() - 0.5) * 80; c.lineTo(x, y); } c.stroke(); } }, true);
+  const foil = mat(0xffffff, { map: foilT, metalness: 1, roughness: 0.25, bumpMap: foilT, bumpScale: 0.003 });
+  const panelT = tex('panel_solar', 256, 512, (c, w, h) => { c.fillStyle = '#0a1a3a'; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 32) for (let x = 0; x < w; x += 32) { const gr = c.createLinearGradient(x, y, x + 32, y + 32); gr.addColorStop(0, '#1a3a8a'); gr.addColorStop(1, '#0a1a4a'); c.fillStyle = gr; c.fillRect(x + 1.5, y + 1.5, 29, 29); } c.strokeStyle = 'rgba(200,210,230,0.4)'; for (let x = 0; x < w; x += 8) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); } });
+  const pan = mat(0xffffff, { map: panelT, roughness: 0.15, metalness: 0.4, env: true, envI: 1.0 }), alu = metal(0xc8ccd0, 0.3), white = mat(0xf2f2ee, { roughness: 0.4 });
+  const S = grp(g, 0, 0.34, 0);
+  // bus central con aislamiento dorado
+  RB(S, 0.14, 0.16, 0.14, 0.01, foil, 0, 0, 0);
+  B(S, 0.142, 0.012, 0.142, white, 0, 0.08, 0); B(S, 0.142, 0.012, 0.142, white, 0, -0.08, 0);
+  // paneles solares desplegados (dos alas de 3 secciones)
+  for (const s of [-1, 1]) {
+    CY(S, 0.004, 0.004, 0.06, alu, s * 0.1, 0, 0, 0, 0, PI / 2, 8);
+    for (let k = 0; k < 3; k++) { const x = s * (0.15 + k * 0.105); RB(S, 0.1, 0.004, 0.14, 0.001, alu, x, 0, 0); P(S, 0.096, 0.136, panelT, x, 0.0025, 0, -PI / 2, 0, 0, { rough: 0.15 }); P(S, 0.096, 0.136, panelT, x, -0.0025, 0, PI / 2, 0, 0); }
+  }
+  // antena parabólica y alimentador
+  const dish = grp(S, 0, 0.1, 0.03, -0.5, 0, 0);
+  CY(dish, 0.006, 0.008, 0.04, alu, 0, 0.0, 0, 0, 0, 0, 10);
+  add(dish, latheGeo(smooth([[0, 0], [0.04, 0.008], [0.075, 0.03]], 16), 48), mat(0xf6f6f2, { roughness: 0.35, side: THREE.DoubleSide }), 0, 0.02, 0);
+  for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; TU(dish, [[Math.cos(a) * 0.07, 0.05, Math.sin(a) * 0.07], [0, 0.085, 0]], 0.0012, alu, false, 4); }
+  CY(dish, 0.006, 0.006, 0.016, alu, 0, 0.088, 0, 0, 0, 0, 10);
+  // antenas látigo, toberas y sensores
+  for (const s of [-1, 1]) TU(S, [[s * 0.06, -0.08, 0.06], [s * 0.1, -0.16, 0.1]], 0.0015, alu, false, 4);
+  for (const [x, z] of [[0.04, 0.04], [-0.04, -0.04]]) lathe(S, smooth([[0.004, 0], [0.006, -0.01], [0.012, -0.02]], 8), metal(0x3a3a3a, 0.4), x, -0.086, z, 0, 0, 0, 16);
+  RB(S, 0.03, 0.02, 0.02, 0.004, mat(0x1a1a1a, { roughness: 0.3 }), 0.04, 0.0, 0.075);
+  // mástil y base de exhibición
+  CY(g, 0.008, 0.008, 0.26, alu, 0, 0.13, 0, 0, 0, 0, 12);
+  RB(g, 0.3, 0.03, 0.2, 0.006, lacquer(0x101014), 0, 0.015, 0);
+  plaque(g, 'MODELO DE FÁBRICA', 'Satélite de comunicaciones · 1:15', 0.11, 0.016, 0, 0.016, 0.1005, 0, 0);
+  return ground(g);
+};
+
+// ---------- Reloj esqueleto con diamantes ----------
+BUILDERS_D.reloj_esqueleto_diamantes = () => {
+  const g = new THREE.Group();
+  const wg = whiteGold(), au = gold(0.2), ruby = gem(0xc8102a, { opacity: 0.95 });
+  // estuche abierto con cojín
+  const box = lacquer(0x1a0e08);
+  RB(g, 0.14, 0.05, 0.14, 0.01, box, 0, 0.025, 0);
+  const lid = grp(g, 0, 0.05, -0.07, -1.85, 0, 0); RB(lid, 0.14, 0.03, 0.14, 0.01, box, 0, 0.015, 0.07); P(lid, 0.12, 0.12, labelTex('HAUTE HORLOGERIE', { bg: '#f2ead8', fg: '#8a6a2a', w: 512, h: 512, font: 'italic bold 44px Georgia', sub: 'Tourbillon · Squelette', subFont: 'italic 30px Georgia' }), 0, -0.001, 0.07, PI / 2, 0, 0, { rough: 0.6 });
+  add(g, ell(0.05, 0.022, 0.035, 32, 20), velvet('cojin_reloj', '#f2ead8'), 0, 0.058, 0.0);
+  // caja del reloj sobre el cojín
+  const W = grp(g, 0, 0.083, 0.0, -0.35, 0, 0);
+  const R0 = 0.021;
+  lathe(W, smooth([[0, -0.005], [R0, -0.005], [R0 + 0.002, 0.0], [R0 + 0.001, 0.005], [0, 0.005]], 16), wg, 0, 0, 0, PI / 2, 0, 0, 64);
+  stonesAlong(W, Array.from({ length: 36 }, (_, i) => { const a = i / 36 * TAU; return [Math.cos(a) * (R0 - 0.0005), Math.sin(a) * (R0 - 0.0005), 0.0055]; }), 0.0016, diamond(), () => [PI / 2, 0, 0]);
+  // movimiento calado: puentes y engranes a la vista
+  const plate = new THREE.Shape(); plate.absarc(0, 0, R0 - 0.0025, 0, TAU, false);
+  for (const [x, y, r] of [[0.008, 0.006, 0.006], [-0.008, -0.004, 0.005], [0.0, -0.011, 0.0045], [-0.009, 0.009, 0.004]]) plate.holes.push(circ(r, x, y, true));
+  EXS(W, plate, 0.0012, metal(0x8a8e94, 0.3), 0, 0, 0.002, 0, 0, 0, 0.0003);
+  for (const [x, y, r, n] of [[0.008, 0.006, 0.0055, 30], [-0.008, -0.004, 0.0045, 24], [0.0, -0.011, 0.004, 20], [-0.009, 0.009, 0.0035, 18], [0.004, 0.0, 0.003, 14]]) add(W, gearGeo(r, n, 0.0008, { rIn: r * 0.25, spokes: 4 }), au, x, y, 0.0028);
+  for (const [x, y] of [[0.008, 0.006], [-0.008, -0.004], [0.0, -0.011]]) SP(W, 0.0009, ruby, x, y, 0.0038, 1, 1, 0.5, 8);
+  // jaula del tourbillon a las 6
+  const tb = grp(W, 0, -0.011, 0.0035);
+  TO(tb, 0.004, 0.0004, wg, 0, 0, 0, 0, 0, 0, TAU, 24); for (let i = 0; i < 3; i++) B(tb, 0.0006, 0.008, 0.0005, wg, 0, 0, 0.0005, 0, 0, i * PI / 3);
+  // manecillas esqueleto y cristal de zafiro
+  for (const [l, a] of [[0.012, 0.9], [0.017, -0.5]]) { const hg = grp(W, 0, 0, 0.0048, 0, 0, a); TU(hg, [[0, 0, 0], [0.0012, l * 0.5, 0], [0, l, 0], [-0.0012, l * 0.5, 0], [0, 0, 0]], 0.0004, au, false, 16); }
+  add(W, new THREE.CircleGeometry(R0 - 0.001, 48), glassD(0xeef6ff, 0.12), 0, 0, 0.0052);
+  // corona y correa de cocodrilo curvada
+  CY(W, 0.002, 0.002, 0.004, wg, R0 + 0.003, 0, 0, 0, 0, PI / 2, 12);
+  const croc = mat(0xffffff, { map: tex('cocodrilo', 256, 512, (c, w, h) => { const R = rng(4); c.fillStyle = '#1a0e08'; c.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 24) for (let x = (y / 24 % 2) * 20; x < w; x += 40) { c.strokeStyle = 'rgba(80,50,30,0.7)'; c.lineWidth = 2; c.strokeRect(x + 2, y + 2, 36 + R() * 4, 20); } }, true), roughness: 0.35, env: true, envI: 0.4 });
+  for (const s of [-1, 1]) { const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([0, s * (R0 + t * 0.06), -t * t * 0.03 - 0.002]); } add(W, ribbonGeo(pts, 0.018, [1, 0, 0], 24, (u) => 1 - u * 0.2), mat(0xffffff, { map: croc.map, roughness: 0.35, side: THREE.DoubleSide })); }
+  return ground(g);
+};
+
+// ---------- Pectoral de jade y oro ----------
+BUILDERS_D.pectoral_jade_oro = () => {
+  const g = new THREE.Group();
+  const au = gold(0.24), jade = mat(0x2a8a5a, { roughness: 0.18, env: true, envI: 0.8 }), turq = mat(0x3ab8a8, { roughness: 0.3, env: true, envI: 0.5 });
+  // tablero de terciopelo inclinado
+  const vb = grp(g, 0, 0.0, 0, 0, 0, 0);
+  RB(vb, 0.36, 0.03, 0.08, 0.006, woodM('pectoral_base', '#2a1408'), 0, 0.015, 0.06);
+  const board = grp(g, 0, 0.17, 0, -0.22, 0, 0);
+  RB(board, 0.34, 0.34, 0.02, 0.006, velvet('pectoral', '#1a1a1a'), 0, 0, -0.012);
+  // máscara central de oro fundido (dios con tocado)
+  const D = grp(board, 0, 0.04, 0.0);
+  lathe(D, smooth([[0, 0.0], [0.05, 0.0], [0.052, 0.004], [0.04, 0.01], [0, 0.012]], 14), au, 0, 0, 0, PI / 2, 0, 0, 48);
+  const face = smoothG(new THREE.SphereGeometry(1, 40, 30, 0, PI, 0, PI)); face.scale(0.028, 0.034, 0.012);
+  sculpt(face, [{ c: [-0.01, 0.006, 0.01], r: 0.008, d: 0.003, dir: [0, 0, -1] }, { c: [0.01, 0.006, 0.01], r: 0.008, d: 0.003, dir: [0, 0, -1] }, { c: [0, -0.004, 0.012], r: 0.008, d: 0.004, dir: [0, 0, 1] }, { c: [0, -0.016, 0.01], r: 0.008, d: 0.003, dir: [0, 0, 1] }]);
+  add(D, face, au, 0, -0.002, 0.012);
+  for (let i = 0; i < 9; i++) { const a = PI * 0.15 + i / 8 * PI * 0.7; add(D, swGeo([[Math.cos(a) * 0.035, Math.sin(a) * 0.035, 0.012], [Math.cos(a) * 0.07, Math.sin(a) * 0.07 + 0.01, 0.01]], [0.004, 0.0025], 6, 6, 0.5), au); } // plumas del tocado
+  for (const s of [-1, 1]) lathe(D, smooth([[0, 0], [0.012, 0], [0.01, 0.004], [0, 0.005]], 8), turq, s * 0.038, -0.004, 0.006, PI / 2, 0, 0, 20); // orejeras
+  // sartas de cuentas de jade que cuelgan en arco
+  const beads = [], goldB = [];
+  for (let r = 0; r < 3; r++) for (let i = 0; i <= 22; i++) { const t = i / 22, a = PI * (0.1 + t * 0.8); const x = Math.cos(a) * (0.13 - r * 0.018), y = -Math.sin(a) * (0.06 + r * 0.025) + 0.1; (i % 4 === 2 ? goldB : beads).push(gx(new THREE.SphereGeometry(0.0055 - r * 0.0008, 14, 10), x, y, 0.004)); }
+  merged(board, beads, jade); merged(board, goldB, au);
+  // fila de cascabeles
+  for (let i = 0; i < 9; i++) { const x = -0.1 + i * 0.025, cb = grp(board, x, -0.1 + Math.abs(i - 4) * 0.004, 0.006); TU(cb, [[0, 0.04, 0], [0, 0.012, 0]], 0.0008, au, false, 4); lathe(cb, smooth([[0, 0.012], [0.006, 0.008], [0.008, 0.0], [0.006, -0.008], [0, -0.01]], 12), au, 0, 0, 0, 0, 0, 0, 20); B(cb, 0.008, 0.0012, 0.004, mat(0x1a1408, { roughness: 1 }), 0, -0.006, 0.006); }
+  // placas trapezoidales de oro a los lados
+  for (const s of [-1, 1]) EXS(board, poly([[-0.018, -0.02], [0.018, -0.02], [0.012, 0.02], [-0.012, 0.02]]), 0.002, au, s * 0.085, 0.05, 0.002, 0, 0, 0, 0.0008);
+  plaque(g, 'PECTORAL MIXTECO', 'Oro a la cera perdida y jade', 0.1, 0.015, 0, 0.016, 0.1005, 0, 0);
+  return ground(g);
+};
+
+// ---------- Coatlicue en miniatura ----------
+BUILDERS_D.coatlicue_miniatura = () => {
+  const g = new THREE.Group();
+  const nz = noise3(1790);
+  const stone = mat(0xffffff, { map: stoneTex('coatlicue', [118, 112, 100], { spots: 1500, veins: 2 }), roughness: 0.85 });
+  const skirtT = tex('falda_serpientes', 512, 512, (c, w, h) => {
+    c.fillStyle = '#7a7266'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = 'rgba(30,26,20,0.75)'; c.lineWidth = 4;
+    for (let row = 0; row < 8; row++) for (let k = 0; k < 6; k++) { const x0 = (k + (row % 2) * 0.5) / 6 * w, y0 = row / 8 * h; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x0 + w / 12, y0 + h / 8); c.lineTo(x0 + w / 6, y0); c.stroke(); for (let s = 0; s < 4; s++) { c.beginPath(); c.moveTo(x0 + 6 + s * 9, y0 + 6 + s * 12); c.lineTo(x0 + w / 6 - 6 - s * 9, y0 + 6 + s * 12); c.stroke(); } }
+  }, true);
+  const skirt = mat(0xffffff, { map: skirtT, roughness: 0.85, bumpMap: skirtT, bumpScale: 0.004 });
+  // cuerpo: bloque trapezoidal (falda) y torso con collar de manos y corazones
+  const body = new THREE.BoxGeometry(0.16, 0.22, 0.1, 8, 12, 6);
+  warpV(body, (v) => { const t = (v.y + 0.11) / 0.22; v.x *= 1 + (0.5 - t) * 0.25; v.z *= 1 + (0.5 - t) * 0.15; });
+  add(g, body, skirt, 0, 0.17, 0);
+  const torso = new THREE.BoxGeometry(0.17, 0.1, 0.11, 8, 6, 6); warpV(torso, (v) => { v.x *= 1 + (v.y / 0.05) * 0.06; }); add(g, torso, stone, 0, 0.33, 0);
+  for (let i = 0; i < 6; i++) { const x = -0.06 + i * 0.024; add(g, ell(0.011, 0.014, 0.006, 12, 10), stone, x, 0.34 - Math.abs(i - 2.5) * 0.008, 0.057); } // collar de manos
+  add(g, ell(0.03, 0.025, 0.01, 16, 12), stone, 0, 0.31, 0.058); // cráneo pectoral
+  // brazos con garras (cabezas de serpiente en los codos)
+  for (const s of [-1, 1]) { add(g, swGeo([[s * 0.088, 0.37, 0], [s * 0.1, 0.33, 0.04], [s * 0.08, 0.31, 0.07]], [0.022, 0.02, 0.018], 10, 12, 0.8), stone); add(g, ell(0.02, 0.015, 0.025, 14, 10), stone, s * 0.08, 0.31, 0.085); }
+  // cabeza: dos serpientes enfrentadas formando el rostro
+  const H = grp(g, 0, 0.42, 0.0);
+  for (const s of [-1, 1]) {
+    const head = smoothG(ell(0.045, 0.04, 0.06, 32, 24));
+    warpV(head, (v) => { v.x *= 1 - Math.max(0, v.z / 0.06) * 0.35; });
+    displace(head, (x, y, z) => nz(x * 40 + s, y * 40, z * 40, 2) * 0.002);
+    add(H, head, stone, s * 0.035, 0.02, 0.0, 0, s * 0.35, 0);
+    SP(H, 0.009, mat(0x2a2620, { roughness: 0.9 }), s * 0.045, 0.045, 0.04, 1, 1, 0.6, 12); // ojos
+    for (let k = 0; k < 2; k++) CO(H, 0.006, 0.026, mat(0xb8b0a0, { roughness: 0.7 }), s * (0.008 + k * 0.012), -0.008, 0.055, PI, 0, 0, 8); // colmillos
+  }
+  add(H, ribbonGeo([[0, -0.01, 0.06], [0, -0.04, 0.07], [0, -0.06, 0.065]], 0.02, [1, 0, 0], 12, (u) => 1 - u * 0.5), mat(0x6a6256, { roughness: 0.9, side: THREE.DoubleSide })); // lengua bífida
+  // pies con garras y base
+  for (const s of [-1, 1]) { RB(g, 0.05, 0.04, 0.06, 0.01, stone, s * 0.05, 0.06, 0.02); for (let k = 0; k < 3; k++) CO(g, 0.006, 0.02, stone, s * 0.05 + (k - 1) * 0.014, 0.05, 0.055, PI / 2, 0, 0, 8); }
+  RB(g, 0.28, 0.04, 0.2, 0.006, mat(0xffffff, { map: stoneTex('coatlicue_base', [60, 58, 54]), roughness: 0.6 }), 0, 0.02, 0);
+  plaque(g, 'COATLICUE', 'La de la falda de serpientes', 0.1, 0.015, 0, 0.022, 0.1005, 0, 0);
+  return ground(g);
+};
+
+// ---------- Roca lunar en cápsula ----------
+BUILDERS_D.roca_lunar_capsula = () => {
+  const g = new THREE.Group();
+  const walnut = woodM('lunar_nogal', '#4a2a14', { rough: 0.3 });
+  // placa de nogal escudo
+  const shield = new THREE.Shape(); shield.moveTo(-0.12, 0.16); shield.lineTo(0.12, 0.16); shield.lineTo(0.12, -0.04); shield.quadraticCurveTo(0.12, -0.14, 0, -0.17); shield.quadraticCurveTo(-0.12, -0.14, -0.12, -0.04); shield.closePath();
+  const P0 = grp(g, 0, 0.19, 0, -0.18, 0, 0);
+  EXS(P0, shield, 0.02, walnut, 0, 0, 0, 0, 0, 0, 0.004);
+  B(g, 0.2, 0.03, 0.12, walnut, 0, 0.015, 0.02);
+  B(g, 0.02, 0.1, 0.06, walnut, 0, 0.06, -0.04, -0.18, 0, 0);
+  // bandera y textos
+  const flag = tex('bandera_lunar', 256, 160, (c, w, h) => { c.fillStyle = '#f4f4f0'; c.fillRect(0, 0, w, h); c.fillStyle = '#006847'; c.fillRect(0, 0, w / 3, h); c.fillStyle = '#ce1126'; c.fillRect(w * 2 / 3, 0, w / 3, h); c.fillStyle = '#8a5a2a'; c.beginPath(); c.arc(w / 2, h / 2, 16, 0, TAU); c.fill(); });
+  P(P0, 0.07, 0.044, flag, 0, 0.11, 0.0146, 0, 0, 0, { rough: 0.6 });
+  plaque(P0, 'APOLLO 17', 'Fragmento lunar · 1972', 0.13, 0.024, 0, -0.1, 0.0162, 0, 0);
+  // esfera de lucita con fragmento de basalto
+  const nz = noise3(1717);
+  const rock = mergeVertices(new THREE.IcosahedronGeometry(0.006, 3));
+  displace(rock, (x, y, z) => nz(x * 600, y * 600, z * 600, 3) * 0.0025);
+  const sph = grp(P0, 0, 0.025, 0.035);
+  add(sph, rock, mat(0x4a4844, { roughness: 0.95 }));
+  const luc = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.02, transmission: 1, thickness: 0.05, ior: 1.49, transparent: true, opacity: 0.55, envMapIntensity: 1.6, clearcoat: 1 });
+  add(sph, new THREE.SphereGeometry(0.026, 40, 28), luc).castShadow = false;
+  lathe(P0, smooth([[0.012, 0], [0.018, 0.006], [0.016, 0.012], [0.01, 0.014]], 10), metal(0xc8ccd0, 0.2), 0, 0.025, 0.0142, PI / 2, 0, 0, 24);
+  return ground(g);
+};
+
+// ---------- Daga de hierro meteórico ----------
+BUILDERS_D.daga_meteorito = () => {
+  const g = new THREE.Group();
+  const wid = tex('daga_wid', 256, 1024, (c, w, h) => { const R = rng(91); c.fillStyle = '#9aa0a6'; c.fillRect(0, 0, w, h); for (const ang of [0.3, 1.35, -0.75]) for (let i = 0; i < 120; i++) { c.save(); c.translate(R() * w, R() * h); c.rotate(ang); const L = 30 + R() * 140, T = 2 + R() * 6; c.fillStyle = `rgba(${R() < 0.5 ? '220,224,230' : '70,74,80'},0.55)`; c.fillRect(-L / 2, -T / 2, L, T); c.restore(); } });
+  const blade = mat(0xffffff, { map: wid, metalness: 0.9, roughness: 0.25, env: true, envI: 1.1 });
+  const au = gold(0.28), crystal = gem(0xf4f8ff, { transmission: 0.85, opacity: 0.7, flat: true, ei: 0.1 });
+  const D = grp(g, -0.05, 0.076, 0);
+  // hoja con filo y nervio central
+  const bl = new THREE.Shape(); bl.moveTo(0, 0.012); bl.lineTo(0.17, 0.006); bl.quadraticCurveTo(0.2, 0.002, 0.21, 0); bl.quadraticCurveTo(0.2, -0.002, 0.17, -0.006); bl.lineTo(0, -0.012); bl.closePath();
+  const bgeo = new THREE.ExtrudeGeometry(bl, { depth: 0.002, bevelEnabled: true, bevelSize: 0.0016, bevelThickness: 0.0016, bevelSegments: 1, curveSegments: 16 });
+  { const uv = bgeo.attributes.uv, p = bgeo.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getY(i) * 10 + 0.5, p.getX(i) / 0.21); }
+  add(D, bgeo, blade, 0, 0, -0.001);
+  // guarda, empuñadura granulada y pomo de cristal
+  RB(D, 0.008, 0.05, 0.012, 0.003, au, -0.004, 0, 0);
+  for (const s of [-1, 1]) SP(D, 0.004, au, -0.004, s * 0.027, 0, 1, 1, 1, 10);
+  const grip = latheGeo(smooth([[0.007, 0], [0.009, 0.02], [0.0085, 0.05], [0.0075, 0.075], [0.006, 0.08]], 20), 32);
+  add(D, grip, mat(0xffffff, { map: tex('granulado', 128, 128, (c, w, h) => { c.fillStyle = '#b8862a'; c.fillRect(0, 0, w, h); for (let y = 4; y < h; y += 8) for (let x = (y / 8 % 2) * 4 + 2; x < w; x += 8) { const gr = c.createRadialGradient(x - 1, y - 1, 0, x, y, 4); gr.addColorStop(0, '#fff0b0'); gr.addColorStop(1, '#8a5a10'); c.fillStyle = gr; c.beginPath(); c.arc(x, y, 3.4, 0, TAU); c.fill(); } }, true), metalness: 1, roughness: 0.3 }), -0.008, 0, 0, 0, 0, PI / 2);
+  add(D, new THREE.IcosahedronGeometry(0.014, 1), crystal, -0.1, 0, 0).scale.set(1.3, 1, 1);
+  TO(D, 0.008, 0.002, au, -0.088, 0, 0, 0, PI / 2, 0, TAU, 20);
+  // atril con horquillas y vaina
+  const wd = woodM('daga_atril', '#1a0e08', { rough: 0.3 });
+  RB(g, 0.32, 0.02, 0.1, 0.005, wd, 0, 0.01, 0);
+  for (const x of [-0.1, 0.07]) { B(g, 0.012, 0.05, 0.012, wd, x, 0.035, 0); TU(g, [[x, 0.072, -0.012], [x, 0.06, 0], [x, 0.072, 0.012]], 0.003, au, false, 8); }
+  const sc = grp(g, -0.11, 0.03, 0.035, 0, 0.08, 0);
+  add(sc, latheGeo(smooth([[0, 0], [0.012, 0.01], [0.014, 0.08], [0.012, 0.2], [0.006, 0.22], [0, 0.225]], 20), 24).scale(1, 1, 0.4), C.leather(0x3a1e0c), 0, 0, 0, 0, 0, -PI / 2);
+  plaque(g, 'HIERRO METEÓRICO', 'Hoja forjada · oro granulado', 0.1, 0.012, 0, 0.012, 0.0505, -0.3, 0);
+  return ground(g);
+};
+
+// ---------- Módulo de supercomputadora con banca ----------
+BUILDERS_D.supercomputadora_banca = () => {
+  const g = new THREE.Group();
+  const panelM = (c) => mat(c, { roughness: 0.35, metalness: 0.2, env: true, envI: 0.6 });
+  const cols = [0xc8261a, 0xc8261a, 0xe86a1a, 0xc8261a, 0xe86a1a, 0x1a1a1a];
+  const N = 12, R0 = 0.46, R1 = 0.26, H = 1.55, gap = 0.6; // forma de C (abierta)
+  const vinyl = mat(0xffffff, { map: tex('vinil_banca', 128, 128, (c, w, h) => { c.fillStyle = '#c86a2a'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(80,30,10,0.4)'; for (let y = 0; y < h; y += 32) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); } }, true), roughness: 0.55, env: true, envI: 0.3 });
+  for (let i = 0; i < N; i++) {
+    const a0 = gap / 2 + i / N * (TAU - gap), a1 = gap / 2 + (i + 1) / N * (TAU - gap);
+    const sh = new THREE.Shape(); sh.absarc(0, 0, R0, a0 + 0.005, a1 - 0.005, false); sh.absarc(0, 0, R1, a1 - 0.005, a0 + 0.005, true); sh.closePath();
+    EXS(g, sh, H - 0.45, panelM(cols[i % cols.length]), 0, 0.45 + (H - 0.45) / 2, 0, PI / 2, 0, 0, 0.004);
+    // banca acolchada en la base (segmento)
+    const bs = new THREE.Shape(); bs.absarc(0, 0, R0 + 0.28, a0 + 0.004, a1 - 0.004, false); bs.absarc(0, 0, R1 - 0.0, a1 - 0.004, a0 + 0.004, true); bs.closePath();
+    EXS(g, bs, 0.36, mat(0x2a2a2e, { roughness: 0.5 }), 0, 0.2, 0, PI / 2, 0, 0, 0.004);
+    const cush = new THREE.Shape(); cush.absarc(0, 0, R0 + 0.27, a0 + 0.01, a1 - 0.01, false); cush.absarc(0, 0, R0 + 0.01, a1 - 0.01, a0 + 0.01, true); cush.closePath();
+    EXS(g, cush, 0.07, vinyl, 0, 0.41, 0, PI / 2, 0, 0, 0.025);
+  }
+  // logotipo y rejillas
+  const logo = tex('logo_super', 512, 128, (c, w, h) => { c.fillStyle = '#1a1a1a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2f2ee'; c.font = 'bold 84px Arial'; c.textAlign = 'center'; c.fillText('VÉRTICE-1', w / 2, 96); });
+  P(g, 0.3, 0.075, logo, Math.sin(PI) * (R0 + 0.006), 1.35, Math.cos(PI) * (R0 + 0.006) * -1, 0, 0, 0);
+  // tapa superior
+  const top = new THREE.Shape(); top.absarc(0, 0, R0 + 0.01, gap / 2, TAU - gap / 2, false); top.absarc(0, 0, R1 - 0.01, TAU - gap / 2, gap / 2, true); top.closePath();
+  EXS(g, top, 0.02, mat(0x1a1a1a, { roughness: 0.4 }), 0, H + 0.01, 0, PI / 2, 0, 0, 0.004);
+  // interior: cableado visible por la abertura
+  const wires = []; const R = rng(76); for (let i = 0; i < 40; i++) { const a = (R() - 0.5) * gap * 0.6, y0 = 0.5 + R() * 1.0; wires.push(tubeGeo([[Math.sin(a) * R1 * 0.9, y0, Math.cos(a) * R1 * 0.9], [Math.sin(a) * R1 * 0.5, y0 - 0.1, Math.cos(a) * R1 * 0.5], [0, y0 - 0.3, 0]], 0.003, 8, 4)); }
+  merged(g, wires, mat(0xd8d0c0, { roughness: 0.6 }));
+  plaque(g, 'SUPERCOMPUTADORA · 1976', '160 MFLOPS · la más rápida del mundo', 0.24, 0.04, 0, 0.3, R0 + 0.285, 0, 0);
+  return ground(g);
+};
+
+// ---------- Carrusel musical autómata ----------
+function horse(m, mane) {
+  const h = new THREE.Group();
+  add(h, swGeo([[-0.03, 0, 0], [0, 0.004, 0], [0.028, 0.008, 0]], [0.012, 0.015, 0.012], 12, 12), m); // cuerpo
+  add(h, swGeo([[0.026, 0.006, 0], [0.036, 0.026, 0], [0.04, 0.036, 0]], [0.008, 0.007, 0.006], 10, 10), m); // cuello
+  add(h, swGeo([[0.036, 0.04, 0], [0.05, 0.034, 0], [0.056, 0.028, 0]], [0.008, 0.006, 0.005], 10, 10), m); // cabeza
+  for (const s of [-1, 1]) for (const fx of [-0.024, 0.022]) add(h, swGeo([[fx, -0.006, s * 0.007], [fx + (fx > 0 ? 0.012 : -0.01), -0.02, s * 0.007], [fx + (fx > 0 ? 0.008 : -0.016), -0.034, s * 0.007]], [0.004, 0.003, 0.0025], 6, 8), m);
+  add(h, swGeo([[-0.03, 0.004, 0], [-0.042, -0.006, 0], [-0.046, -0.024, 0]], [0.004, 0.005, 0.002], 6, 8), mane); // cola
+  add(h, swGeo([[0.028, 0.018, 0], [0.034, 0.034, 0], [0.04, 0.044, 0]], [0.003, 0.004, 0.002], 6, 8, 2), mane); // crin
+  return h;
+}
+BUILDERS_D.carrusel_automata = () => {
+  const g = new THREE.Group();
+  const au = gold(0.2), red = lacquer(0xb8161e), cream = mat(0xf4ecd8, { roughness: 0.3, env: true, envI: 0.5 });
+  const mirrorM = metal(0xe8eef2, 0.05);
+  // base: caja musical cilíndrica con plataforma
+  lathe(g, smooth([[0, 0], [0.16, 0], [0.165, 0.01], [0.16, 0.05], [0.165, 0.055], [0, 0.055]], 20), red, 0, 0, 0, 0, 0, 0, 64);
+  TO(g, 0.163, 0.004, au, 0, 0.012, 0, PI / 2, 0, 0, TAU, 64); TO(g, 0.163, 0.004, au, 0, 0.053, 0, PI / 2, 0, 0, TAU, 64);
+  lathe(g, [[0, 0.055], [0.15, 0.055], [0.15, 0.065], [0, 0.065]], C.wood(0x8a5a2a), 0, 0, 0, 0, 0, 0, 64);
+  // columna central con espejos
+  const col = latheGeo([[0.035, 0.065], [0.035, 0.3]], 12);
+  add(g, col, mirrorM);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; B(g, 0.004, 0.235, 0.004, au, Math.cos(a) * 0.036, 0.18, Math.sin(a) * 0.036); }
+  // toldo cónico a rayas con faldón festoneado
+  const awnT = tex('toldo', 512, 128, (c, w, h) => { for (let i = 0; i < 16; i++) { c.fillStyle = i % 2 ? '#f4ecd8' : '#b8161e'; c.fillRect(i * w / 16, 0, w / 16 + 1, h); } }, true);
+  add(g, latheGeo(smooth([[0.17, 0], [0.12, 0.04], [0.05, 0.07], [0.0, 0.08]], 20), 64), mat(0xffffff, { map: awnT, roughness: 0.5, side: THREE.DoubleSide }), 0, 0.3, 0);
+  const fest = []; for (let i = 0; i < 24; i++) { const a = (i + 0.5) / 24 * TAU; fest.push(gx(new THREE.CircleGeometry(0.022, 16, 0, PI), Math.cos(a) * 0.171, 0.3, Math.sin(a) * 0.171, PI, -a + PI / 2, 0)); }
+  merged(g, fest, mat(0xffffff, { map: awnT, roughness: 0.5, side: THREE.DoubleSide }));
+  TO(g, 0.171, 0.004, au, 0, 0.3, 0, PI / 2, 0, 0, TAU, 64);
+  for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; SP(g, 0.004, emissive(0xfff0b0, 1.2), Math.cos(a) * 0.172, 0.296, Math.sin(a) * 0.172, 1, 1, 1, 8); }
+  lathe(g, smooth([[0, 0], [0.012, 0], [0.008, 0.02], [0.012, 0.03], [0, 0.05]], 12), au, 0, 0.375, 0, 0, 0, 0, 20);
+  // caballitos con tubos dorados a diferentes alturas
+  const hm = [cream, mat(0x2a2a2e, { roughness: 0.35, env: true }), mat(0xd8b080, { roughness: 0.35, env: true })], mane = mat(0x5a3a1a, { roughness: 0.7 });
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU, r = 0.115, y = 0.13 + Math.sin(i * 1.7) * 0.025;
+    const twist = latheGeo([[0.0035, 0.065], [0.0035, 0.3]], 8); warpV(twist, (v) => { const k = 1 + 0.15 * Math.sin(Math.atan2(v.z, v.x) * 3 + v.y * 120); v.x *= k; v.z *= k; });
+    add(g, twist, au, Math.cos(a) * r, 0, Math.sin(a) * r);
+    const hg = grp(g, Math.cos(a) * r, y, Math.sin(a) * r, 0, -a - PI / 2, 0);
+    hg.add(horse(hm[i % 3], mane));
+    RB(hg, 0.018, 0.004, 0.022, 0.002, red, 0, 0.016, 0); // montura
+  }
+  // manivela de la caja de música
+  CY(g, 0.003, 0.003, 0.02, au, 0.17, 0.03, 0, 0, 0, PI / 2, 8); B(g, 0.004, 0.025, 0.004, au, 0.18, 0.02, 0); SP(g, 0.006, cream, 0.18, 0.006, 0);
+  return ground(g);
+};
+
+// ---------- Anillo de esmeralda en estuche ----------
+BUILDERS_D.anillo_esmeralda_estuche = () => {
+  const g = new THREE.Group();
+  const leather = C.leather(0x0e3a2a), satin = mat(0xf4f0e6, { roughness: 0.4, env: true, envI: 0.3 });
+  const pt = whiteGold(), emer = gem(0x0a9a4a, { transmission: 0.5, opacity: 0.92, emissive: 0x053a1a, ei: 0.3 });
+  // estuche abierto con cojín ranurado
+  RB(g, 0.07, 0.035, 0.07, 0.01, leather, 0, 0.0175, 0);
+  const lid = grp(g, 0, 0.035, -0.035, -1.95, 0, 0); RB(lid, 0.07, 0.025, 0.07, 0.01, leather, 0, 0.0125, 0.035); RB(lid, 0.06, 0.004, 0.06, 0.003, satin, 0, -0.001, 0.035);
+  P(lid, 0.04, 0.012, labelTex('JOYERÍA REAL', { bg: '#f4f0e6', fg: '#8a6a2a', w: 512, h: 150, font: 'italic bold 70px Georgia' }), 0, -0.0035, 0.035, PI / 2, 0, PI, { rough: 0.5 });
+  for (const s of [-1, 1]) add(g, ell(0.03, 0.012, 0.014, 24, 14), velvet('anillo', '#0a2a1e'), 0, 0.034, s * 0.008);
+  // aro de platino
+  const R = grp(g, 0, 0.05, 0, 0, 0, 0);
+  add(R, latheGeo([[0.0085, -0.0012], [0.0095, -0.0014], [0.0098, 0], [0.0095, 0.0014], [0.0085, 0.0012], [0.0085, -0.0012]], 64), pt, 0, 0, 0, PI / 2, 0, 0);
+  // esmeralda talla esmeralda (octágono escalonado) con halo
+  const top = grp(R, 0, 0.0105, 0);
+  const ec = new THREE.Shape(); const w = 0.0055, d = 0.0042, ch = 0.0012; ec.moveTo(-w + ch, -d); ec.lineTo(w - ch, -d); ec.lineTo(w, -d + ch); ec.lineTo(w, d - ch); ec.lineTo(w - ch, d); ec.lineTo(-w + ch, d); ec.lineTo(-w, d - ch); ec.lineTo(-w, -d + ch); ec.closePath();
+  const eg = new THREE.ExtrudeGeometry(ec, { depth: 0.002, bevelEnabled: true, bevelSize: 0.0012, bevelThickness: 0.0016, bevelSegments: 2, curveSegments: 1 });
+  add(top, eg, emer, 0, 0.0025, 0, -PI / 2, 0, 0);
+  const halo = []; const hp = ec.getPoints(); for (let i = 0; i < 22; i++) { const t = i / 22, p = ec.getPointAt(t); halo.push([p.x * 1.32, 0.001, -p.y * 1.32]); }
+  stonesAlong(top, halo, 0.0008, diamond(), () => [0, 0, 0]);
+  for (const [x, z] of [[-w, -d], [w, -d], [-w, d], [w, d]]) CO(top, 0.0007, 0.003, pt, x * 0.92, 0.003, z * 0.92, 0, 0, 0, 6); // garras
+  lathe(top, [[0.003, -0.004], [0.006, 0.0], [0.006, 0.0008], [0.002, 0.0008]], pt, 0, 0, 0, 0, 0, 0, 16);
+  return ground(g);
+};
+
+// ---------- Casco espacial de utilería ----------
+BUILDERS_D.casco_espacial_utileria = () => {
+  const g = new THREE.Group();
+  const shellM = mat(0xf2ece0, { roughness: 0.3, env: true, envI: 0.5 }), visor = new THREE.MeshPhysicalMaterial({ color: 0xe0a830, metalness: 1, roughness: 0.04, envMapIntensity: 1.8, transparent: true, opacity: 0.92 });
+  const alu = metal(0xc8ccd0, 0.25), red = mat(0xb8261a, { roughness: 0.4 });
+  // maniquí/soporte
+  lathe(g, smooth([[0, 0], [0.11, 0], [0.11, 0.03], [0.04, 0.05], [0.03, 0.14], [0, 0.14]], 20), lacquer(0x1a1a1e), 0, 0, 0, 0, 0, 0, 48);
+  const H = grp(g, 0, 0.27, 0);
+  // casco: cáscara esférica con abertura del visor
+  add(H, new THREE.SphereGeometry(0.13, 64, 48), shellM);
+  const vg = new THREE.SphereGeometry(0.1305, 48, 32, PI * 0.25, PI * 0.5, PI * 0.28, PI * 0.36);
+  add(H, vg, visor, 0, 0, 0, 0, 0, 0);
+  // marco del visor y franjas
+  const frame = []; for (let i = 0; i <= 40; i++) { const t = i / 40, phi = PI * 0.25 + t * PI * 0.5; for (const th of [PI * 0.28, PI * 0.64]) frame.push([th, phi]); }
+  const edge = (th0, th1, ph0, ph1) => { const pts = []; for (let i = 0; i <= 30; i++) { const t = i / 30, th = th0 + (th1 - th0) * t, ph = ph0 + (ph1 - ph0) * t; pts.push([-0.132 * Math.cos(ph) * Math.sin(th), 0.132 * Math.cos(th), 0.132 * Math.sin(ph) * Math.sin(th)]); } return tubeGeo(pts, 0.005, 30, 6); };
+  merged(H, [edge(PI * 0.28, PI * 0.28, PI * 0.25, PI * 0.75), edge(PI * 0.64, PI * 0.64, PI * 0.25, PI * 0.75), edge(PI * 0.28, PI * 0.64, PI * 0.25, PI * 0.25), edge(PI * 0.28, PI * 0.64, PI * 0.75, PI * 0.75)], alu);
+  add(H, bandGeoD(0.13, 0.02, 0.003), red, 0, 0.05, 0).rotation.set(0, 0, PI / 2);
+  // anillo de cuello y conectores
+  lathe(H, [[0.09, -0.11], [0.11, -0.115], [0.11, -0.14], [0.095, -0.145], [0.09, -0.145]], alu, 0, 0, 0, 0, 0, 0, 64);
+  for (let i = 0; i < 3; i++) { const a = PI + (i - 1) * 0.5; lathe(H, smooth([[0, 0], [0.014, 0], [0.014, 0.02], [0.01, 0.024], [0, 0.024]], 10), i === 1 ? red : alu, Math.cos(a) * 0.115, -0.07, Math.sin(a) * 0.115, PI / 2, 0, -a + PI / 2, 20); }
+  for (const s of [-1, 1]) { RB(H, 0.04, 0.03, 0.02, 0.006, alu, s * 0.12, 0.0, 0.0, 0, s * PI / 2, 0); CY(H, 0.005, 0.005, 0.03, emissive(0xff3020, 1.2), s * 0.136, 0.02, 0.0, 0, 0, PI / 2, 8); }
+  // reflejo en el visor
+  const L = new THREE.PointLight(0xffe0a0, 0.3, 0.5); L.position.set(0, 0.32, 0.3); g.add(L);
+  plaque(g, 'UTILERÍA ORIGINAL', 'Odisea espacial · 1968', 0.1, 0.015, 0, 0.018, 0.11, -0.4, 0);
+  return ground(g);
+};
+
+// ---------- Fragmento de OVNI ----------
+BUILDERS_D.fragmento_ovni = () => {
+  const g = new THREE.Group();
+  const glyph = tex('glifos_ovni', 512, 512, (c, w, h) => { c.clearRect(0, 0, w, h); const R = rng(51); c.strokeStyle = '#40ffd0'; c.lineWidth = 4; c.shadowColor = '#40ffd0'; c.shadowBlur = 12; for (let k = 0; k < 14; k++) { const x = 60 + (k % 4) * 110, y = 70 + Math.floor(k / 4) * 110; c.beginPath(); c.arc(x, y, 18 + R() * 10, R() * 3, R() * 3 + 4); c.stroke(); c.beginPath(); c.moveTo(x - 20, y + 30); c.lineTo(x + 20, y + 30 - R() * 20); c.stroke(); if (R() < 0.6) { c.beginPath(); c.arc(x + 10, y - 10, 4, 0, TAU); c.stroke(); } } });
+  // lámina iridiscente arrugada y rota
+  const nz = noise3(1947);
+  const sheet = new THREE.CircleGeometry(0.12, 64, 0, TAU);
+  warpV(sheet, (v) => { const a = Math.atan2(v.y, v.x), r = Math.hypot(v.x, v.y); const edge = 0.55 + nz(Math.cos(a) * 2.2, Math.sin(a) * 2.2, 1, 3) * 0.7 + Math.abs(Math.sin(a * 7)) * 0.15; const k = Math.min(1, edge); v.x *= k; v.y *= k * 0.8; v.z = nz(v.x * 18, v.y * 18, 5, 3) * 0.012 + r * r * 0.6; });
+  const rainbow = tex('iridiscente', 256, 256, (c, w, h) => { const gr = c.createLinearGradient(0, 0, w, h); ['#9ad0ff', '#d0a0ff', '#ffb0d0', '#ffe0a0', '#a0ffd0', '#9ad0ff'].forEach((col, i, a) => gr.addColorStop(i / (a.length - 1), col)); c.fillStyle = gr; c.fillRect(0, 0, w, h); const R = rng(4); for (let i = 0; i < 40; i++) { c.strokeStyle = `rgba(255,255,255,${R() * 0.25})`; c.lineWidth = 1 + R() * 3; c.beginPath(); c.arc(R() * w, R() * h, 20 + R() * 80, 0, TAU); c.stroke(); } });
+  const iri = mat(0xffffff, { map: rainbow, metalness: 1, roughness: 0.12, side: THREE.DoubleSide });
+  const F = grp(g, 0, 0.17, 0, -0.35, 0.3, 0.2);
+  add(F, sheet, iri);
+  const back = sheet.clone(); add(F, back, iri, 0, 0, -0.003);
+  const gl = add(F, sheet.clone(), new THREE.MeshBasicMaterial({ map: glyph, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), 0, 0, 0.0015); gl.castShadow = false;
+  // soporte de acrílico con base negra iluminada
+  RB(g, 0.24, 0.03, 0.16, 0.006, lacquer(0x0a0a0c), 0, 0.015, 0);
+  add(g, new THREE.PlaneGeometry(0.2, 0.12), new THREE.MeshBasicMaterial({ color: 0x40ffd0, transparent: true, opacity: 0.12, depthWrite: false }), 0, 0.0305, 0, -PI / 2, 0, 0);
+  const acr = glassD(0xdff0ff, 0.3);
+  B(g, 0.01, 0.13, 0.01, acr, 0, 0.095, -0.02);
+  plaque(g, 'MATERIAL NO IDENTIFICADO', 'Desierto de Sonora · 1974', 0.13, 0.016, 0, 0.016, 0.0805, 0, 0, { bg: '#1a1a1a', fg: '#40ffd0', frame: metal(0x3a3a3a, 0.3) });
+  return ground(g);
+};
+
+// ---------- Consola portátil de oro macizo ----------
+BUILDERS_D.consola_oro_macizo = () => {
+  const g = new THREE.Group();
+  const au = gold(0.15), ruby = gem(0xc8102a, { opacity: 0.95 }), sapph = gem(0x1a3ab8, { opacity: 0.95 });
+  const black = mat(0x121212, { roughness: 0.35, env: true, envI: 0.5 });
+  slabBase(g, 0.2, 0.14, 0.022, black, { trim: au });
+  // soporte inclinado
+  EXS(g, poly([[-0.03, 0], [0.02, 0], [0.02, 0.012], [-0.03, 0.09], [-0.036, 0.09], [-0.005, 0.01], [-0.03, 0.01]]), 0.09, glassD(0xdff0ff, 0.28), -0.015, 0.022, 0, 0, -PI / 2, 0, 0.0015);
+  // cuerpo vertical estilo clásico (90×148 mm) con esquina redondeada abajo a la derecha
+  const H = grp(g, -0.015, 0.1, 0.0, -0.3, 0, 0);
+  const W = 0.09, Hh = 0.148, D = 0.03;
+  const sh = new THREE.Shape(); sh.moveTo(-W / 2, -Hh / 2); sh.lineTo(W / 2 - 0.03, -Hh / 2); sh.quadraticCurveTo(W / 2, -Hh / 2, W / 2, -Hh / 2 + 0.03); sh.lineTo(W / 2, Hh / 2 - 0.004); sh.quadraticCurveTo(W / 2, Hh / 2, W / 2 - 0.004, Hh / 2); sh.lineTo(-W / 2 + 0.004, Hh / 2); sh.quadraticCurveTo(-W / 2, Hh / 2, -W / 2, Hh / 2 - 0.004); sh.closePath();
+  const body = new THREE.ExtrudeGeometry(sh, { depth: D, bevelEnabled: true, bevelSize: 0.003, bevelThickness: 0.003, bevelSegments: 3, curveSegments: 24 });
+  body.translate(0, 0, -D / 2);
+  add(H, body, mat(0xffffff, { map: engraveTex('consola_oro', '#e2b04a', 'rgba(90,55,10,0.35)', { border: false, density: 0.5 }), metalness: 1, roughness: 0.15 }));
+  // marco de pantalla, pantalla y leyenda
+  RB(H, 0.076, 0.062, 0.002, 0.006, mat(0x2a2a30, { roughness: 0.4 }), 0, 0.034, D / 2 + 0.003);
+  const scr = tex('scr_oro', 160, 144, (c, w, h) => { c.fillStyle = '#8aa830'; c.fillRect(0, 0, w, h); c.fillStyle = '#2a4010'; c.font = 'bold 20px monospace'; c.fillText('GOLD', 50, 70); c.fillRect(20, 100, 120, 6); });
+  P(H, 0.047, 0.042, scr, 0, 0.036, D / 2 + 0.0042, 0, 0, 0, { glow: 0.4, rough: 0.2 });
+  // cruceta de oro y botones de rubí y zafiro
+  const cr = 0.004, cl = 0.011;
+  EXS(H, poly([[-cr, cl], [cr, cl], [cr, cr], [cl, cr], [cl, -cr], [cr, -cr], [cr, -cl], [-cr, -cl], [-cr, -cr], [-cl, -cr], [-cl, cr], [-cr, cr]]), 0.004, gold(0.1), -0.024, -0.024, D / 2 + 0.004, 0, 0, 0, 0.001);
+  add(H, brilliantGeo(0.0055, { n: 12 }), ruby, 0.028, -0.02, D / 2 + 0.003, PI / 2, 0, 0);
+  add(H, brilliantGeo(0.0055, { n: 12 }), sapph, 0.016, -0.028, D / 2 + 0.003, PI / 2, 0, 0);
+  for (const x of [-0.008, 0.006]) RB(H, 0.011, 0.0035, 0.003, 0.0016, gold(0.1), x, -0.05, D / 2 + 0.002, 0, 0, 0.45);
+  for (let i = 0; i < 6; i++) B(H, 0.0016, 0.016, 0.001, mat(0x3a2a10, { roughness: 0.6 }), 0.026 + i * 0.004, -0.058, D / 2 + 0.0035, 0, 0, -0.45); // rejilla del altavoz
+  stonesAlong(H, Array.from({ length: 12 }, (_, i) => [-0.036 + i * 0.0065, 0.07, D / 2 + 0.003]), 0.0014, diamond(), () => [PI / 2, 0, 0]);
+  plaque(g, 'ORO 18 K · PIEZA ÚNICA', 'Encargo privado', 0.09, 0.012, 0, 0.011, 0.0712, 0, 0);
+  return ground(g);
+};
+
+// ---------- Máscara de lucha bordada en oro ----------
+BUILDERS_D.mascara_lucha_oro = () => {
+  const g = new THREE.Group();
+  const maskT = tex('lucha_oro', 1024, 512, (c, w, h) => {
+    c.fillStyle = '#1a1a1a'; c.fillRect(0, 0, w, h);
+    const R = rng(77); for (let i = 0; i < 3000; i++) { c.fillStyle = `rgba(255,255,255,${R() * 0.04})`; c.fillRect(R() * w, R() * h, 2, 1); }
+    // flamas y contorno de ojos/boca bordados en oro (u: 0.25 = frente)
+    c.strokeStyle = '#e2b04a'; c.fillStyle = '#e2b04a'; c.lineWidth = 8;
+    const cx = w * 0.25;
+    for (const s of [-1, 1]) { c.beginPath(); c.ellipse(cx + s * 60, h * 0.45, 52, 34, s * 0.25, 0, TAU); c.stroke(); c.beginPath(); c.moveTo(cx + s * 20, h * 0.36); for (let k = 0; k < 5; k++) c.quadraticCurveTo(cx + s * (60 + k * 30), h * (0.3 - k * 0.04), cx + s * (80 + k * 30), h * (0.2 - k * 0.02)); c.stroke(); }
+    c.beginPath(); c.ellipse(cx, h * 0.72, 46, 22, 0, 0, TAU); c.stroke();
+    c.lineWidth = 6; c.beginPath(); c.moveTo(cx, h * 0.08); c.lineTo(cx, h * 0.3); c.stroke();
+    for (let k = 0; k < 7; k++) { c.beginPath(); c.moveTo(cx - 140 + k * 46, h * 0.98); c.quadraticCurveTo(cx - 130 + k * 46, h * 0.85, cx - 118 + k * 46, h * 0.98); c.fill(); }
+    // pedrería
+    for (let i = 0; i < 60; i++) { c.fillStyle = R() < 0.5 ? '#ffffff' : '#ff3a3a'; c.beginPath(); c.arc(cx + (R() - 0.5) * 360, h * (0.1 + R() * 0.8), 3, 0, TAU); c.fill(); }
+  });
+  const fabric = mat(0xffffff, { map: maskT, roughness: 0.45, metalness: 0.3, env: true, envI: 0.6 });
+  // cabeza de maniquí con la máscara (rostro hacia +z)
+  const head = mergeVertices(new THREE.SphereGeometry(1, 64, 48));
+  head.scale(0.075, 0.1, 0.09);
+  warpV(head, (v) => { if (v.y < -0.04 && v.z < 0.03) v.z *= 0.85; if (v.y < -0.06) v.x *= 1 - (-0.06 - v.y) * 4; });
+  sculpt(head, [{ c: [-0.026, 0.01, 0.084], r: 0.022, d: 0.008, dir: [0, 0, -1] }, { c: [0.026, 0.01, 0.084], r: 0.022, d: 0.008, dir: [0, 0, -1] }, { c: [0, -0.012, 0.09], r: 0.02, d: 0.012, dir: [0, 0, 1] }, { c: [0, -0.045, 0.082], r: 0.022, d: 0.004, dir: [0, 0, 1] }]);
+  { const uv = head.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, (uv.getX(i) + 0.0) % 1); }
+  add(g, head, fabric, 0, 0.26, 0);
+  // aberturas: ojos y boca con forro dorado
+  const skin = mat(0x1a1410, { roughness: 0.8 });
+  for (const s of [-1, 1]) { add(g, ell(0.017, 0.011, 0.004, 20, 12), skin, s * 0.026, 0.27, 0.083, 0, 0, s * -0.25); TO(g, 0.016, 0.002, gold(0.25), s * 0.026, 0.27, 0.084, 0, 0, 0, TAU, 24).scale.set(1, 0.68, 1); }
+  add(g, ell(0.016, 0.008, 0.004, 20, 12), skin, 0, 0.214, 0.083);
+  // cordones de la nuca
+  for (let i = 0; i < 5; i++) TU(g, [[-0.012, 0.21 + i * 0.016, -0.088], [0.012, 0.218 + i * 0.016, -0.088]], 0.0012, mat(0xe2b04a, { roughness: 0.4, metalness: 0.6 }), false, 4);
+  TU(g, [[0, 0.21, -0.09], [0.02, 0.18, -0.1], [0.01, 0.15, -0.095]], 0.0012, mat(0xe2b04a, { roughness: 0.4, metalness: 0.6 }), false, 8);
+  // cuello y base
+  lathe(g, smooth([[0, 0], [0.09, 0], [0.09, 0.025], [0.04, 0.05], [0.035, 0.16], [0, 0.17]], 20), lacquer(0x2a0a0a), 0, 0, 0, 0, 0, 0, 48);
+  plaque(g, 'ÚLTIMA CAÍDA', 'Arena México · máscara de campeonato', 0.12, 0.016, 0, 0.012, 0.09, -0.5, 0);
+  return ground(g);
+};
+
+// ---------- Monolito levitante ----------
+BUILDERS_D.monolito_levitante = () => {
+  const g = new THREE.Group();
+  const stone = mat(0xffffff, { map: stoneTex('monolito_base', [70, 66, 62], { spots: 900, veins: 4 }), roughness: 0.75 });
+  const obs = new THREE.MeshPhysicalMaterial({ color: 0x030304, roughness: 0.04, metalness: 0.1, clearcoat: 1, envMapIntensity: 1.2, flatShading: true });
+  // base de piedra tallada en escalones
+  for (const [r, h, y] of [[0.16, 0.04, 0.02], [0.13, 0.03, 0.055], [0.1, 0.02, 0.08]]) { const b = CY(g, r, r * 1.04, h, stone, 0, y, 0, 0, 0, 0, 8); b.rotation.y = PI / 8; }
+  add(g, new THREE.CircleGeometry(0.06, 48), emissive(0x7a40ff, 1.6), 0, 0.0905, 0, -PI / 2, 0, 0);
+  // cristal negro bipiramidal alargado que flota
+  const M = grp(g, 0, 0.25, 0, 0, 0.4, 0);
+  const pts = [[0, -0.12], [0.035, -0.06], [0.04, 0.0], [0.035, 0.07], [0, 0.14]];
+  add(M, latheGeo(pts, 6), obs);
+  // anillos de luz
+  for (const [r, y, rx, rz] of [[0.075, 0.0, PI / 2 + 0.3, 0.2], [0.09, 0.02, PI / 2 - 0.25, -0.3], [0.06, -0.05, PI / 2, 0.6]]) { const t = TO(M, r, 0.0018, emissive(0xa070ff, 2.4), 0, y, 0, rx, 0, rz, TAU, 64); t.castShadow = false; }
+  // halo y haz entre base y cristal
+  const beam = add(g, new THREE.CylinderGeometry(0.02, 0.05, 0.05, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0x8a60ff, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }), 0, 0.115, 0); beam.castShadow = false;
+  const L = new THREE.PointLight(0x9a70ff, 0.8, 0.8); L.position.set(0, 0.2, 0); g.add(L);
+  // runas talladas en la base
+  const rt = tex('runas', 512, 64, (c, w, h) => { c.fillStyle = '#464240'; c.fillRect(0, 0, w, h); c.strokeStyle = '#b8a0ff'; c.lineWidth = 3; const R = rng(3); for (let i = 0; i < 16; i++) { const x = 16 + i * 31; c.beginPath(); c.moveTo(x, 12); c.lineTo(x + (R() - 0.5) * 16, 52); c.moveTo(x - 8, 30); c.lineTo(x + 8, 24 + R() * 12); c.stroke(); } }, true);
+  add(g, new THREE.CylinderGeometry(0.1305, 0.1355, 0.03, 8, 1, true), mat(0xffffff, { map: rt, roughness: 0.7, emissive: 0x2a1a5a, emissiveIntensity: 0.4 }), 0, 0.055, 0, 0, PI / 8, 0);
+  return ground(g);
+};
+
+// ---------- Diamante azul maldito ----------
+BUILDERS_D.diamante_azul_maldito = () => {
+  const g = new THREE.Group();
+  const blue = gem(0x1a3ab8, { transmission: 0.55, opacity: 0.92, emissive: 0x0a1a6a, ei: 0.45 });
+  const pt = whiteGold();
+  // columna de terciopelo y domo de cristal
+  lathe(g, smooth([[0, 0], [0.09, 0], [0.09, 0.02], [0.06, 0.035], [0.05, 0.12], [0.07, 0.13], [0.07, 0.14], [0, 0.14]], 24), lacquer(0x0e0e12), 0, 0, 0, 0, 0, 0, 64);
+  add(g, ell(0.055, 0.025, 0.04, 32, 20), velvet('diamante_azul', '#1a1a2a'), 0, 0.15, 0);
+  // colgante: diamante cojín azul con halo de brillantes y cadena
+  const D = grp(g, 0, 0.2, 0.0, -0.2, 0, 0);
+  const cush = brilliantGeo(0.018, { n: 16, table: 0.5, crown: 0.2, pav: 0.55 }); cush.scale(1.1, 1, 0.9); cush.rotateX(PI / 2);
+  add(D, cush, blue);
+  stonesAlong(D, Array.from({ length: 16 }, (_, i) => { const a = i / 16 * TAU; return [Math.cos(a) * 0.024, Math.sin(a) * 0.022, 0.0]; }), 0.0035, diamond(), () => [PI / 2, 0, 0]);
+  TO(D, 0.0235, 0.0012, pt, 0, 0, -0.002, 0, 0, 0, TAU, 48).scale.set(1.05, 0.95, 1);
+  lathe(D, smooth([[0, 0], [0.004, 0], [0.003, 0.006], [0, 0.008]], 8), pt, 0, 0.026, 0, 0, 0, 0, 12);
+  const chain = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = PI * (0.5 + (t - 0.5) * 1.6); chain.push([Math.cos(a) * 0.06, 0.032 + Math.sin(a) * 0.045 - 0.045 + 0.045, -0.01 - Math.sin(t * PI) * 0.03]); }
+  TU(D, chain, 0.0012, pt, false, 80);
+  stonesAlong(D, chain.filter((_, i) => i % 2 === 0), 0.0016, diamond(), () => [PI / 2, 0, 0]);
+  // domo y placa
+  glassDome(g, 0.09, 0.2, 0.14);
+  TO(g, 0.09, 0.004, gold(0.2), 0, 0.142, 0, PI / 2, 0, 0, TAU, 64);
+  const L = new THREE.PointLight(0x5a7aff, 0.4, 0.5); L.position.set(0, 0.25, 0.1); g.add(L);
+  plaque(g, '45.52 QUILATES', 'Ninguno de sus dueños lo conservó', 0.1, 0.015, 0, 0.07, 0.054, -0.15, 0);
+  return ground(g);
+};
+
+// ---------- Cartucho dorado de campeonato ----------
+BUILDERS_D.cartucho_campeonato_oro = () => {
+  const g = new THREE.Group();
+  const au = mat(0xf0c050, { metalness: 0.85, roughness: 0.28, env: true, envI: 1.2 });
+  // estuche de grado (acrílico) con etiqueta de calificación
+  const C0 = grp(g, 0, 0.0, 0);
+  const caseM = glassD(0xf4f8ff, 0.16);
+  const cs = RB(C0, 0.16, 0.022, 0.2, 0.006, caseM, 0, 0.011, 0); cs.castShadow = false; cs.renderOrder = 3;
+  P(C0, 0.13, 0.03, labelTex('9.6 · GRADUADO', { bg: '#f4f4f0', fg: '#1a2a6a', w: 1024, h: 230, font: 'bold 110px Arial', sub: 'CAMPEONATO 1990 · 1 DE 26', subFont: 'bold 56px Arial' }), 0, 0.0225, -0.075, -PI / 2, 0, 0, { rough: 0.4 });
+  // cartucho dorado con etiqueta
+  const K = grp(g, 0, 0.0085, 0.015);
+  const sh = new THREE.Shape(); sh.moveTo(-0.06, -0.066); sh.lineTo(0.06, -0.066); sh.lineTo(0.06, 0.06); sh.lineTo(0.055, 0.066); sh.lineTo(-0.055, 0.066); sh.lineTo(-0.06, 0.06); sh.closePath();
+  EXS(K, sh, 0.014, au, 0, 0, 0, -PI / 2, 0, 0, 0.0015);
+  const lab = tex('cart_champ', 512, 400, (c, w, h) => { const gr = c.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#0a0a2a'); gr.addColorStop(1, '#2a0a3a'); c.fillStyle = gr; c.fillRect(0, 0, w, h); c.fillStyle = '#e2b04a'; c.font = 'bold 66px Arial'; c.textAlign = 'center'; c.fillText('WORLD', w / 2, 120); c.fillText('CHAMPIONSHIPS', w / 2, 200); c.font = 'bold 90px Arial'; c.fillStyle = '#ffffff'; c.fillText('1990', w / 2, 320); c.strokeStyle = '#e2b04a'; c.lineWidth = 8; c.strokeRect(12, 12, w - 24, h - 24); });
+  P(K, 0.092, 0.072, lab, 0, 0.0085, 0.006, -PI / 2, 0, 0, { rough: 0.35 });
+  // estrías de agarre y ranura del conector
+  for (let i = 0; i < 8; i++) B(K, 0.1, 0.0012, 0.0016, gold(0.25), 0, 0.0082, -0.045 - i * 0.0026);
+  B(K, 0.11, 0.004, 0.008, mat(0x2a2010, { roughness: 0.5 }), 0, -0.004, 0.064);
+  return ground(g);
+};
+
+// ---------- Huevo de dragón fosilizado ----------
+BUILDERS_D.huevo_dragon_fosil = () => {
+  const g = new THREE.Group();
+  const nz = noise3(3330);
+  // escamas: grilla hexagonal desplazada sobre el huevo
+  const egg = mergeVertices(latheGeo(smooth([[0, 0], [0.06, 0.02], [0.085, 0.07], [0.08, 0.13], [0.055, 0.18], [0.02, 0.205], [0, 0.21]], 64), 96));
+  displace(egg, (x, y, z) => { const a = Math.atan2(z, x), u = a * 9, v = y * 70; const fu = u - Math.floor(u) - 0.5, fv = (v + (Math.floor(u) % 2) * 0.5) - Math.floor(v + (Math.floor(u) % 2) * 0.5) - 0.5; return 0.004 * (1 - Math.min(1, (fu * fu + fv * fv) * 4)) + nz(x * 40, y * 40, z * 40, 2) * 0.002; });
+  const scaleT = tex('escama_dragon', 256, 256, (c, w, h) => { const R = rng(5); c.fillStyle = '#4a3a2a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 2500; i++) { c.fillStyle = `rgba(${R() < 0.5 ? '20,14,8' : '140,110,70'},${R() * 0.4})`; c.fillRect(R() * w, R() * h, 2, 2); } }, true);
+  const E = grp(g, 0, 0.07, 0, 0.12, 0, 0.08);
+  add(E, egg, mat(0xffffff, { map: scaleT, roughness: 0.8, bumpMap: scaleT, bumpScale: 0.003, metalness: 0.15 }));
+  // grieta incandescente
+  const crack = []; for (let i = 0; i <= 30; i++) { const t = i / 30, y = 0.05 + t * 0.12, a = 0.3 + Math.sin(t * 12) * 0.12 + t * 0.4, r = 0.084 - Math.pow(t - 0.4, 2) * 0.12 + 0.002; crack.push([Math.cos(a) * r, y, Math.sin(a) * r]); }
+  const cm = add(E, swGeo(crack, (t) => 0.0035 * Math.sin(t * PI) + 0.0006, 8, 60, 1), emissive(0xff6a10, 3.0)); cm.castShadow = false;
+  for (const off of [[0.04, 0.25, 0.5], [0.09, 0.62, -0.4]]) { const br = []; const i0 = Math.floor(off[1] * 30); for (let k = 0; k <= 8; k++) { const p = crack[i0]; br.push([p[0] + k * 0.003 * Math.cos(off[2]), p[1] + k * 0.004, p[2] + k * 0.003 * Math.sin(off[2]) * 0.3]); } add(E, swGeo(br, (t) => 0.0018 * (1 - t), 6, 12, 1), emissive(0xff8a20, 2.6)).castShadow = false; }
+  const L = new THREE.PointLight(0xff7020, 0.7, 0.5); L.position.set(0.12, 0.17, 0.12); g.add(L);
+  // nido de ramas petrificadas y base
+  const twigs = []; const R = rng(91); for (let i = 0; i < 26; i++) { const a = R() * TAU, r = 0.07 + R() * 0.04; twigs.push(tubeGeo([[Math.cos(a) * r, 0.05 + R() * 0.03, Math.sin(a) * r], [Math.cos(a + 0.8) * (r + 0.02), 0.04 + R() * 0.03, Math.sin(a + 0.8) * (r + 0.02)], [Math.cos(a + 1.6) * r, 0.05 + R() * 0.03, Math.sin(a + 1.6) * r]], 0.005 + R() * 0.003, 12, 5)); }
+  merged(g, twigs, mat(0xffffff, { map: stoneTex('ramas_dragon', [100, 84, 66]), roughness: 0.9 }));
+  lathe(g, smooth([[0, 0], [0.14, 0], [0.142, 0.02], [0.12, 0.04], [0, 0.045]], 16), mat(0xffffff, { map: stoneTex('base_dragon', [56, 52, 48]), roughness: 0.7 }), 0, 0, 0, 0, 0, 0, 7);
+  plaque(g, 'OVUM DRACONIS', 'Hallazgo de origen desconocido', 0.1, 0.014, 0, 0.022, 0.13, -0.6, 0);
+  return ground(g);
+};
+
+// ---------- Reloj de bolsillo súper complicación ----------
+BUILDERS_D.reloj_supercomplicacion = () => {
+  const g = new THREE.Group();
+  const au = gold(0.16), dialAu = mat(0xffffff, { map: guillocheTex('supercomp', '#e8e2d0', 'rgba(140,120,80,0.35)', { rays: 0, rings: 60 }), roughness: 0.25, env: true, envI: 0.6 });
+  // atril de caoba con gancho
+  const wd = woodM('super_atril', '#3a1608', { rough: 0.3 });
+  RB(g, 0.16, 0.025, 0.12, 0.006, wd, 0, 0.0125, 0);
+  const st = grp(g, 0, 0.025, -0.02, -0.2, 0, 0); B(st, 0.03, 0.15, 0.012, wd, 0, 0.075, 0); TU(st, [[0, 0.15, 0.006], [0, 0.162, 0.016], [0, 0.152, 0.024]], 0.002, au, false, 10);
+  // caja del reloj (cazador abierto)
+  const W = grp(g, 0, 0.105, 0.0, -0.2, 0, 0);
+  const R0 = 0.033;
+  lathe(W, smooth([[0, -0.008], [R0 - 0.004, -0.008], [R0, -0.004], [R0 + 0.001, 0.0], [R0, 0.004], [R0 - 0.002, 0.006], [0, 0.006]], 20), mat(0xffffff, { map: barleyTex('super_caja'), metalness: 1, roughness: 0.18 }), 0, 0, 0, PI / 2, 0, 0, 72);
+  // esfera blanca con 4 subesferas
+  const dialT = tex('dial_super', 512, 512, (c, w, h) => {
+    const cx = w / 2; c.fillStyle = '#f8f4ea'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1a1a1a'; c.font = 'bold 34px Georgia'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (let i = 1; i <= 12; i++) { const a = i / 12 * TAU - PI / 2; c.fillText(['I', 'II', 'III', 'IIII', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][i - 1], cx + Math.cos(a) * 205, cx + Math.sin(a) * 205); }
+    for (let i = 0; i < 60; i++) { const a = i / 60 * TAU; c.fillRect(cx + Math.cos(a) * 232 - 1, cx + Math.sin(a) * 232 - 1, 3, 3); }
+    const sub = (x, y, n, lab) => { c.strokeStyle = '#1a1a1a'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, 58, 0, TAU); c.stroke(); for (let i = 0; i < n; i++) { const a = i / n * TAU; c.beginPath(); c.moveTo(x + Math.cos(a) * 50, y + Math.sin(a) * 50); c.lineTo(x + Math.cos(a) * 58, y + Math.sin(a) * 58); c.stroke(); } c.font = 'italic 16px Georgia'; c.fillText(lab, x, y + 30); };
+    sub(cx, cx - 100, 31, 'DATE'); sub(cx - 100, cx, 7, 'JOUR'); sub(cx + 100, cx, 12, 'MOIS');
+    c.fillStyle = '#1a2a6a'; c.beginPath(); c.arc(cx, cx + 100, 58, PI, TAU); c.fill(); c.fillStyle = '#e2c060'; c.beginPath(); c.arc(cx - 20, cx + 80, 18, 0, TAU); c.fill(); c.fillStyle = '#f2f2ea'; for (let i = 0; i < 12; i++) c.fillRect(cx - 50 + i * 9, cx + 60 + (i % 3) * 8, 2, 2); // fases lunares
+    c.fillStyle = '#1a1a1a'; c.font = 'bold 20px Georgia'; c.fillText('GRANDE COMPLICATION', cx, cx + 175);
+  });
+  add(W, new THREE.CircleGeometry(R0 - 0.003, 64), mat(0xffffff, { map: dialT, roughness: 0.25, env: true, envI: 0.5 }), 0, 0, 0.0061);
+  for (const [l, a, wd2] of [[0.018, 2.1, 0.0016], [0.026, -0.4, 0.0012], [0.028, 1.1, 0.0005]]) { const hg = grp(W, 0, 0, 0.0068, 0, 0, a); B(hg, wd2, l, 0.0005, mat(0x1a2a8a, { metalness: 1, roughness: 0.2 }), 0, l / 2, 0); }
+  for (const [x, y, a] of [[0, 0.01, 0.4], [-0.01, 0, 1.8], [0.01, 0, -0.9]]) { const hg = grp(W, x, y, 0.0066, 0, 0, a); B(hg, 0.0006, 0.007, 0.0004, mat(0x1a1a1a), 0, 0.0035, 0); }
+  add(W, latheGeo(smooth([[0, 0.009], [R0 * 0.6, 0.008], [R0 - 0.002, 0.006]], 16), 48), glassD(0xeef6ff, 0.12), 0, 0, 0, PI / 2, 0, 0);
+  // corona, arco y tapa trasera abierta con mapa celeste
+  lathe(W, smooth([[0, 0], [0.004, 0], [0.004, 0.008], [0.006, 0.01], [0.006, 0.014], [0, 0.016]], 12), au, 0, R0, 0, 0, 0, 0, 20);
+  TO(W, 0.009, 0.0016, au, 0, R0 + 0.022, 0, 0, PI / 2, 0, TAU, 24);
+  const lid = grp(W, 0, -R0, -0.008, -PI * 0.92 + PI, 0, 0);
+  const sky = tex('mapa_celeste', 512, 512, (c, w, h) => { const cx = w / 2; c.fillStyle = '#0a1a4a'; c.beginPath(); c.arc(cx, cx, cx, 0, TAU); c.fill(); const R = rng(8); for (let i = 0; i < 300; i++) { c.fillStyle = `rgba(255,240,200,${0.4 + R() * 0.6})`; c.beginPath(); c.arc(R() * w, R() * h, R() * 2.2, 0, TAU); c.fill(); } c.strokeStyle = 'rgba(226,192,96,0.7)'; c.lineWidth = 2; for (const r of [80, 160, 230]) { c.beginPath(); c.arc(cx, cx, r, 0, TAU); c.stroke(); } });
+  add(lid, latheGeo(smooth([[0, -0.004], [R0 - 0.004, -0.003], [R0, 0.0]], 12), 72), au, 0, R0, 0, PI / 2, 0, 0);
+  add(lid, new THREE.CircleGeometry(R0 - 0.005, 64), mat(0xffffff, { map: sky, roughness: 0.3, metalness: 0.3, env: true, envI: 0.5 }), 0, R0, 0.0005);
+  // cadena tipo albert hasta la base
+  const ch = []; for (let i = 0; i <= 60; i++) { const t = i / 60; ch.push(gx(new THREE.TorusGeometry(0.0028, 0.0008, 6, 12), 0.01 + t * 0.06, 0.15 - Math.sin(t * PI * 0.9) * 0.1 - t * 0.04, 0.02 + t * 0.02, 0, i % 2 ? PI / 2 : 0, 0)); }
+  merged(g, ch, au);
+  plaque(g, '24 COMPLICACIONES', 'Ocho años de trabajo', 0.1, 0.012, 0, 0.0125, 0.0605, 0, 0);
   return ground(g);
 };

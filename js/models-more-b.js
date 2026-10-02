@@ -674,7 +674,7 @@ function paloGolf(seed) {
   CY(c, 0.0065, 0.0045, 0.8, C.chrome(), 0.05, 0, 0, 0, 0, PI / 2, 12);
   const grip = T('golfgrip', 64, 256, (x, w, h) => { x.fillStyle = '#1a1a1a'; x.fillRect(0, 0, w, h); x.fillStyle = '#3a3a3a'; for (let y = 0; y < h; y += 6) for (let i = 0; i < w; i += 6) x.fillRect(i + (y / 6 % 2) * 3, y, 2, 2); x.fillStyle = '#c81e2a'; x.fillRect(0, h - 30, w, 6); }, true);
   CY(c, 0.0125, 0.0095, 0.27, mat(0xffffff, { map: grip, roughness: 0.85 }), -0.48, 0, 0, 0, 0, PI / 2, 16);
-  LA(c, [[0, 0], [0.013, 0], [0.0135, 0.004], [0, 0.006]], mat(0x1a1a1a), -0.615, 0, 0, 0, 0, 0).rotation.z = PI / 2;
+  LA(c, [[0, 0], [0.013, 0], [0.0135, 0.004], [0, 0.006]], mat(0x1a1a1a), -0.615, 0, 0, 20).rotation.z = PI / 2;
   // cabeza del driver
   const head = sphereDeform((v) => { let { x, y, z } = v; x *= 1 + 0.25 * z; if (y < 0) y *= 0.55; v.set(x, y, z); }, 32, 24);
   const hd = add(c, head, mat(0x1a1c20, { roughness: 0.2, metalness: 0.6, env: true, envI: 1 }), 0.49, 0.012, 0.04, 0, -0.3, 0); hd.scale.set(0.058, 0.034, 0.048);
