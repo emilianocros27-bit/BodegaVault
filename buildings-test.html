@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prueba de edificios</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9cc3e6; font-family: system-ui, sans-serif; }
+  #ui { position: fixed; top: 10px; left: 10px; background: rgba(20,22,24,.8); color: #eee; padding: 8px 10px; border-radius: 10px; font-size: 13px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; max-width: calc(100vw - 40px); }
+  #ui select, #ui button { background: #2a2d30; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; }
+  #info { color: #bbb; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="ui"><select id="kind"></select><button data-l="1">Nv 1</button><button data-l="2">Nv 2</button><button data-l="3">Nv 3</button><button id="tal">Taller</button><button id="col">Colisiones</button><span id="info"></span></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { setEnvMap } from './js/modelkit.js';
+import { buildBusiness, BUSINESS_KINDS, tallerRestauracion } from './js/town-buildings.js';
+
+const Q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9cc3e6);
+scene.fog = new THREE.Fog(0x9cc3e6, 60, 160);
+const pmrem = new THREE.PMREMGenerator(renderer);
+setEnvMap(pmrem.fromScene(new RoomEnvironment(), 0.04).texture);
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x6a5a48, 1.1));
+const sun = new THREE.DirectionalLight(0xfff2dc, 2.6);
+sun.position.set(14, 22, 18); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, far: 100 });
+scene.add(sun, sun.target);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x8a8578, roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 400);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+let current = null, colGroup = new THREE.Group(); scene.add(colGroup); colGroup.visible = Q.has('col');
+const sel = document.getElementById('kind');
+for (const k of BUSINESS_KINDS) sel.add(new Option(k, k));
+function stats(o) { let meshes = 0, tris = 0; o.traverse(m => { if (m.isMesh && m.visible) { meshes++; const g = m.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } }); return { meshes, tris: Math.round(tris) }; }
+function show(kind, level, taller) {
+  if (current) { scene.remove(current); }
+  colGroup.clear();
+  const t0 = performance.now();
+  let cols = [], door = null;
+  if (taller) {
+    current = new THREE.Group(); const pts = {};
+    tallerRestauracion(current, pts);
+    current.updateMatrixWorld(true);
+    current.traverse(o => { if (o.userData.col) cols.push(o); });
+    door = pts.taller;
+    const street = new THREE.Mesh(new THREE.PlaneGeometry(60, 8), new THREE.MeshStandardMaterial({ color: 0x3a3b3d, roughness: 0.95 })); street.rotation.x = -Math.PI / 2; street.position.set(30, 0.005, 51); current.add(street);
+    sun.target.position.set(30, 0, 64); sun.position.set(44, 26, 40);
+    if (!show.did) { camera.position.set(22, 7, 48); controls.target.set(30, 1.5, 64); }
+  } else {
+    const r = buildBusiness(kind, level); current = r.group; cols = r.colliders; door = r.door;
+    sun.target.position.set(0, 0, -6); sun.position.set(14, 22, 12);
+    if (!show.did) { camera.position.set(9, 6, 14); controls.target.set(0, 2.5, -5); }
+  }
+  show.did = true;
+  scene.add(current); current.updateMatrixWorld(true);
+  for (const c of cols) { const b = new THREE.Box3().setFromObject(c); const h = new THREE.Box3Helper(b, c.userData.col && b.min.y > 1.95 ? 0x3a8aff : 0xff2a6a); colGroup.add(h); }
+  if (door) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({ color: 0x00ff66 })); s.position.copy(door); s.position.y += 0.15; colGroup.add(s); }
+  const st = stats(current);
+  document.getElementById('info').textContent = `${taller ? 'taller' : kind + ' nv' + level} · ${st.meshes} mallas · ${st.tris} tris · ${cols.length} col · ${(performance.now() - t0).toFixed(0)} ms`;
+  window.__stats = st; window.__cur = current; window.THREE = THREE;
+}
+let kind = Q.get('kind') || 'tortilleria', level = +(Q.get('level') || 1), taller = Q.has('taller');
+sel.value = kind;
+sel.onchange = () => { kind = sel.value; taller = false; show(kind, level, false); };
+document.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { level = +b.dataset.l; taller = false; show(kind, level, false); });
+document.getElementById('tal').onclick = () => { taller = true; show(kind, level, true); };
+document.getElementById('col').onclick = () => { colGroup.visible = !colGroup.visible; };
+show(kind, level, taller);
+if (Q.has('cam')) { const [x, y, z, tx, ty, tz] = Q.get('cam').split(',').map(Number); camera.position.set(x, y, z); controls.target.set(tx, ty, tz); }
+window.setView = (x, y, z, tx, ty, tz) => { camera.position.set(x, y, z); controls.target.set(tx, ty, tz); controls.update(); };
+window.showB = (k, l, t) => { kind = k; level = l; show(k, l, !!t); };
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

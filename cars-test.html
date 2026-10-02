@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Autos · prueba</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #cfd6dc; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  #info { position: fixed; top: 8px; left: 8px; background: rgba(20,22,24,.8); color: #eee; padding: 6px 10px; border-radius: 8px; font-size: 13px; max-width: 60vw; }
+  .lbl { position: fixed; color: #111; background: rgba(255,255,255,.85); font-size: 11px; padding: 1px 4px; border-radius: 4px; transform: translate(-50%, 0); white-space: nowrap; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="info"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { setEnvMap } from './js/modelkit.js';
+import { makeCar, CAR_MODELS } from './js/cars.js';
+
+const Q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xcfd6dc);
+const pmrem = new THREE.PMREMGenerator(renderer);
+setEnvMap(pmrem.fromScene(new RoomEnvironment(), 0.04).texture);
+scene.add(new THREE.HemisphereLight(0xeef4ff, 0x6a6258, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+sun.position.set(6, 12, 8); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004;
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x8c8c88, roughness: 0.95 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 500);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+// persona de referencia 1.7 m
+if (Q.get('ref')) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.7, 12), new THREE.MeshStandardMaterial({ color: 0x3355aa })); p.position.set(0, 0.85, 2.2); scene.add(p); }
+
+const info = document.getElementById('info');
+const labels = [];
+const stats = (g) => { let dc = 0, tri = 0; g.traverse(o => { if (o.isMesh) { const n = Array.isArray(o.material) ? o.geometry.groups.length || 1 : 1; dc += n; const idx = o.geometry.index; tri += (idx ? idx.count : o.geometry.attributes.position.count) / 3; } }); return { dc, tri: tri | 0 }; };
+const t0 = performance.now();
+let ids = [];
+if (Q.get('tile')) {
+  // mosaico: cada auto en dos vistas (3/4 frontal y 3/4 trasera)
+  const ids = Q.get('tile').split(','), cars = ids.map(id => { const g = makeCar(id); g.visible = false; scene.add(g); return g; });
+  const rows = ids.length, views = (Q.get('views') || 'fl,rr').split(',');
+  const V = { fl: [1, 0.32, 0.8], rl: [-1, 0.32, 0.8], fr: [1, 0.32, -0.8], rr: [-1, 0.32, -0.8], side: [0, 0.1, 1], front: [1, 0.1, 0], rear: [-1, 0.1, 0], top: [0.01, 1, 0.01] };
+  renderer.setScissorTest(true); controls.enabled = false;
+  window.tileDraw = () => {
+    const W = innerWidth, H = innerHeight, tw = W / views.length, th = H / rows;
+    cars.forEach((g, i) => {
+      const box = new THREE.Box3().setFromObject(g), sz = box.getSize(new THREE.Vector3());
+      views.forEach((v, j) => {
+        cars.forEach(c => c.visible = c === g);
+        const n = new THREE.Vector3(...V[v]).normalize().multiplyScalar(Math.max(sz.x, 3.6) * 1.55);
+        camera.aspect = tw / th; camera.updateProjectionMatrix();
+        camera.position.set(0, sz.y * 0.4, 0).add(n); camera.lookAt(0, sz.y * 0.4, 0);
+        const y = H - (i + 1) * th; renderer.setViewport(j * tw, y, tw, th); renderer.setScissor(j * tw, y, tw, th);
+        renderer.render(scene, camera);
+      });
+    });
+  };
+  ids.forEach((id, i) => { const d = document.createElement('div'); d.className = 'lbl'; d.style.transform = 'none'; d.style.left = '4px'; d.style.top = (i * innerHeight / rows + 2) + 'px'; d.textContent = id; document.body.appendChild(d); });
+  info.style.display = 'none';
+} else if (Q.get('all') || Q.get('cat') || Q.get('ids')) {
+  let list = CAR_MODELS.map(m => m.id);
+  if (Q.get('ids')) list = Q.get('ids').split(',');
+  if (Q.get('cat')) list = CAR_MODELS.filter(m => m.category === Q.get('cat')).map(m => m.id);
+  if (Q.get('legacy')) list = ['sedan', 'vocho', 'pickup', 'taxi', 'police', ...list];
+  ids = list;
+  const cols = +(Q.get('cols') || Math.ceil(Math.sqrt(ids.length)));
+  const sx = 3.0, sz = 6.4;
+  ids.forEach((id, i) => {
+    const g = makeCar(id);
+    const r = (i / cols) | 0, c = i % cols;
+    g.position.set((r - 0) * sx * -1, 0, (c - (cols - 1) / 2) * sz);
+    g.rotation.y = Q.get('rot') ? +Q.get('rot') : -Math.PI / 2;
+    scene.add(g);
+    const d = document.createElement('div'); d.className = 'lbl'; d.textContent = id; document.body.appendChild(d); labels.push([d, g]);
+  });
+  const rows = Math.ceil(ids.length / cols);
+  camera.position.set(12, 40, 0); controls.target.set(-(rows - 1) * sx / 2, 0, 0);
+  if (Q.get('view') === 'q') { camera.position.set(-(rows - 1) * sx / 2 + 14, 9, 14); controls.target.set(-(rows - 1) * sx / 2, 0.6, 0); }
+  if (Q.get('view') === 'side') { camera.position.set(-(rows - 1) * sx / 2 + 40, 6, 0); }
+  info.textContent = `${ids.length} autos · ${(performance.now() - t0) | 0} ms`;
+} else {
+  const id = Q.get('id') || 'sedan';
+  const col = Q.get('c') ? parseInt(Q.get('c'), 16) : undefined;
+  const g = makeCar(id, col);
+  window.car = g;
+  scene.add(g);
+  const st = stats(g);
+  const box = new THREE.Box3().setFromObject(g), sz = box.getSize(new THREE.Vector3());
+  const m = CAR_MODELS.find(m => m.id === id);
+  info.textContent = `${id} ${m ? `· ${m.brand} ${m.model} ${m.year} · ${m.category}/${m.rarity}` : ''} · L ${sz.x.toFixed(2)} W ${sz.z.toFixed(2)} H ${sz.y.toFixed(2)} · draw ${st.dc} · tris ${st.tri} · ${(performance.now() - t0) | 0} ms`;
+  const v = Q.get('v') || 'fl';
+  const D = +(Q.get('d') || 7.5);
+  const views = { fl: [1, 0.35, 0.75], rl: [-1, 0.35, 0.75], fr: [1, 0.35, -0.75], rr: [-1, 0.35, -0.75], side: [0, 0.12, 1], front: [1, 0.12, 0], rear: [-1, 0.12, 0], top: [0.01, 1, 0.01], low: [0.9, 0.08, 0.9] };
+  const vv = views[v] || views.fl; const n = new THREE.Vector3(...vv).normalize().multiplyScalar(D);
+  controls.target.set(0, sz.y * 0.42, 0); camera.position.copy(controls.target).add(n);
+}
+function frame() {
+  if (window.tileDraw) { window.tileDraw(); requestAnimationFrame(frame); return; }
+  controls.update();
+  renderer.render(scene, camera);
+  for (const [d, g] of labels) { const p = g.position.clone(); p.y = 2.0; p.project(camera); d.style.left = ((p.x + 1) / 2 * innerWidth) + 'px'; d.style.top = ((1 - p.y) / 2 * innerHeight) + 'px'; }
+  requestAnimationFrame(frame);
+}
+frame();
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+</script>
+</body>
+</html>
