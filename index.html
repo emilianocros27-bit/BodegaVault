@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>BodegaVault 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,6 +69,28 @@
   #modal button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
   #modal button:disabled { opacity: .4; cursor: not-allowed; }
   #modal .muted { color: var(--muted); font-size: 13px; } #modal .small { font-size: 12px; }
+  /* controles táctiles: solo en celular/tableta */
+  #mob { display: none; }
+  body.mobile { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+  body.mobile #mob { display: block; }
+  body.mobile #mob.hide { display: none; }
+  #joy { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: rgba(20,24,22,.28); border: 2px solid rgba(255,255,255,.35); pointer-events: none; z-index: 6; backdrop-filter: blur(2px); transition: opacity .2s; }
+  #joy.idle { opacity: .55; }
+  #joy i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 3px 10px rgba(0,0,0,.35); }
+  #joy.run i { background: #ffd84a; }
+  #mobBtns { position: fixed; right: calc(14px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 64px 64px; grid-template-areas: ". jump" "phone act"; gap: 12px; z-index: 6; }
+  #mobBtns button { width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); background: rgba(20,24,22,.5); color: #fff; font: 600 11px system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; backdrop-filter: blur(6px); touch-action: none; padding: 0; }
+  #mobBtns button b { font-size: 22px; line-height: 1; }
+  #mobBtns button:active, #mobBtns button.on { background: rgba(255,216,74,.85); color: #1a1a1a; }
+  #bAct { grid-area: act; width: 78px !important; height: 78px !important; margin: -7px; }
+  #bAct.ready { background: rgba(255,216,74,.9); color: #1a1a1a; border-color: #fff; animation: actPulse 1s ease-in-out infinite; }
+  @keyframes actPulse { 50% { transform: scale(1.08); } }
+  #bJump { grid-area: jump; } #bPhone { grid-area: phone; }
+  body.mobile #prompt { bottom: calc(110px + env(safe-area-inset-bottom)); }
+  body.mobile #topbar { top: calc(8px + env(safe-area-inset-top)); bottom: auto; }
+  body.mobile #topbar span { padding: 6px 10px; font-size: 12px; }
+  body.mobile #cash { font-size: 13px !important; }
+  body.mobile #right { display: none; }
   body.aerial #cross, body.touring #cross, body.aerial #prompt, body.touring #prompt { display: none !important; }
   body.touring #hud, body.touring #right { opacity: .35; }
   @media (max-width: 700px) {
@@ -274,6 +296,7 @@
 <div id="goal"></div>
 <div id="cross"></div>
 <div id="prompt"></div>
+<div id="mob"><div id="joy" class="idle"><i></i></div><div id="mobBtns"><button id="bJump"><b>⤒</b>Saltar</button><button id="bPhone"><b>📱</b>Teléfono</button><button id="bAct"><b>✋</b>Usar</button></div></div>
 <div id="toasts"></div>
 <div id="cards"></div>
 <div id="banner"></div>
@@ -332,8 +355,11 @@ const L = N * W;
 const EYE = 1.7, RADIUS = 0.3;
 
 // ---------- Renderer / escena ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-const MAX_PR = Math.min(devicePixelRatio, 1.75);
+// celular / tableta: pantalla táctil sin mouse → controles en pantalla y gráficos más ligeros
+const IS_MOBILE = matchMedia('(hover: none) and (pointer: coarse)').matches || (navigator.maxTouchPoints > 1 && !matchMedia('(pointer: fine)').matches);
+if (IS_MOBILE) document.body.classList.add('mobile');
+const renderer = new THREE.WebGLRenderer({ antialias: !IS_MOBILE, powerPreference: 'high-performance' });
+const MAX_PR = Math.min(devicePixelRatio, IS_MOBILE ? 1.25 : 1.75);
 let curPR = MAX_PR;
 renderer.setPixelRatio(curPR);
 renderer.setSize(innerWidth, innerHeight);
@@ -1111,7 +1137,7 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.8);
 sun.position.set(-35, 55, 25);
 sun.castShadow = true;
-sun.shadow.mapSize.set(3072, 3072);
+sun.shadow.mapSize.set(IS_MOBILE ? 1024 : 3072, IS_MOBILE ? 1024 : 3072);
 const sc = sun.shadow.camera;
 sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 200;
 sun.shadow.bias = -0.0004;
@@ -3661,7 +3687,7 @@ addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyW' || 
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; sprint = false; });
 
 // un clic en la escena captura el cursor; si el navegador no deja, se mira moviendo el mouse sin apretar
-cvs.addEventListener('click', () => { if (aerial || touring || uiBusy()) return; if (phoneOpen) togglePhone(false); if (!locked()) cvs.requestPointerLock?.()?.catch?.(() => (freeLook = true)); });
+cvs.addEventListener('click', () => { if (aerial || touring || uiBusy()) return; if (phoneOpen) togglePhone(false); if (IS_MOBILE) return; if (!locked()) cvs.requestPointerLock?.()?.catch?.(() => (freeLook = true)); });
 document.addEventListener('pointerlockerror', () => (freeLook = true));
 document.addEventListener('pointerlockchange', () => { if (locked()) freeLook = false; });
 let lastMX = null, lastMY = null;
@@ -3680,25 +3706,48 @@ function look(dx, dy) {
 // táctil: mitad izquierda mueve, mitad derecha mira
 const touchMove = { id: null, sx: 0, sy: 0, x: 0, y: 0 };
 const touchLook = { id: null, x: 0, y: 0 };
+const joy = $('joy'), joyKnob = joy.querySelector('i');
+const JOY_R = 50;
+function joyHome() { joy.style.left = 'calc(90px + env(safe-area-inset-left))'; joy.style.top = (innerHeight - 110) + 'px'; joy.classList.add('idle'); joy.classList.remove('run'); joyKnob.style.transform = ''; }
+if (IS_MOBILE) { joyHome(); addEventListener('resize', () => { if (touchMove.id === null) joyHome(); }); }
+let joyRun = false;
 cvs.addEventListener('touchstart', e => {
   if (aerial) return;
+  if (phoneOpen) togglePhone(false);
   for (const t of e.changedTouches) {
-    if (t.clientX < innerWidth / 2 && touchMove.id === null) Object.assign(touchMove, { id: t.identifier, sx: t.clientX, sy: t.clientY, x: 0, y: 0 });
+    if (t.clientX < innerWidth / 2 && touchMove.id === null) {
+      Object.assign(touchMove, { id: t.identifier, sx: t.clientX, sy: t.clientY, x: 0, y: 0 });
+      joy.style.left = t.clientX + 'px'; joy.style.top = t.clientY + 'px'; joy.classList.remove('idle');
+    }
     else if (touchLook.id === null) Object.assign(touchLook, { id: t.identifier, x: t.clientX, y: t.clientY });
   }
 }, { passive: true });
 cvs.addEventListener('touchmove', e => {
   for (const t of e.changedTouches) {
-    if (t.identifier === touchMove.id) { touchMove.x = (t.clientX - touchMove.sx) / 60; touchMove.y = (t.clientY - touchMove.sy) / 60; }
-    if (t.identifier === touchLook.id) { look((t.clientX - touchLook.x) * 1.4, (t.clientY - touchLook.y) * 1.4); touchLook.x = t.clientX; touchLook.y = t.clientY; }
+    if (t.identifier === touchMove.id) {
+      let dx = t.clientX - touchMove.sx, dy = t.clientY - touchMove.sy; const d = Math.hypot(dx, dy);
+      if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+      touchMove.x = dx / JOY_R; touchMove.y = dy / JOY_R;
+      joyRun = d > JOY_R * 1.25; joy.classList.toggle('run', joyRun);
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+    if (t.identifier === touchLook.id) { look((t.clientX - touchLook.x) * 1.5, (t.clientY - touchLook.y) * 1.5); touchLook.x = t.clientX; touchLook.y = t.clientY; }
   }
 }, { passive: true });
 cvs.addEventListener('touchend', e => {
   for (const t of e.changedTouches) {
-    if (t.identifier === touchMove.id) touchMove.id = null, touchMove.x = touchMove.y = 0;
+    if (t.identifier === touchMove.id) { touchMove.id = null; touchMove.x = touchMove.y = 0; joyRun = false; joyHome(); }
     if (t.identifier === touchLook.id) touchLook.id = null;
   }
 }, { passive: true });
+cvs.addEventListener('touchcancel', () => { touchMove.id = touchLook.id = null; touchMove.x = touchMove.y = 0; joyRun = false; if (IS_MOBILE) joyHome(); }, { passive: true });
+// botones en pantalla (solo celular)
+const tapBtn = (id, fn) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (state.sound && !audio.ctx) setSound(true); fn(); });
+tapBtn('bAct', () => { if (aerial || touring || uiBusy()) return; bestInteractable()?.act(); });
+tapBtn('bPhone', () => { if (!uiBusy()) togglePhone(); });
+tapBtn('bJump', () => { if (!aerial && !touring && !uiBusy() && jumpY === 0) { vy = 5.4; jumpY = 0.001; sfx.jump(); } });
+// los controles se ocultan con el teléfono, ventanas o vista aérea abiertos
+if (IS_MOBILE) setInterval(() => $('mob').classList.toggle('hide', phoneOpen || uiBusy() || aerial || touring), 150);
 
 // ---- transiciones de cámara ----
 function tweenCam(p1, q1, dur, onDone) {
@@ -3984,7 +4033,7 @@ function tick() {
     if (keys.KeyA || keys.ArrowLeft) mv.sub(right);
     if (touchMove.id !== null) mv.addScaledVector(right, Math.max(-1, Math.min(1, touchMove.x))).addScaledVector(fwd, -Math.max(-1, Math.min(1, touchMove.y)));
     if (mv.lengthSq() > 1) mv.normalize();
-    const running = sprint || keys.ShiftLeft || keys.ShiftRight;
+    const running = sprint || joyRun || keys.ShiftLeft || keys.ShiftRight;
     const maxS = (turbo ? (running ? 26 : 18) : running ? 9 : 4.5) * (gameNow() < coffeeUntil ? 1.3 : 1);
     tv.copy(mv).multiplyScalar(maxS);
     const k = 1 - Math.exp(-(mv.lengthSq() > 0 ? 9 : 11) * dt * (jumpY > 0 ? 0.35 : 1));
@@ -4009,7 +4058,7 @@ function tick() {
 
     const it = bestInteractable();
     const label = it ? it.label : '';
-    if (label !== curPrompt) { curPrompt = label; $('prompt').textContent = label; $('prompt').style.display = label ? 'block' : 'none'; }
+    if (label !== curPrompt) { curPrompt = label; $('prompt').textContent = IS_MOBILE ? label.replace(/(^|\s)F(?= —)/g, '$1✋').replace(/\(F\)/g, '(✋)') : label; $('prompt').style.display = label ? 'block' : 'none'; if (IS_MOBILE) $('bAct').classList.toggle('ready', !!it); }
     $('cross').classList.toggle('active', !!it);
 
     let inside = null;
@@ -4029,7 +4078,7 @@ function tick() {
         px > 10 && px < 22.5 && pz < 72 && has('estacionamiento') ? 'Estacionamiento del bazar' : px > -24 && px < -12 && pz < 70 && has('cafeteria') ? 'Café La Esquina' :
         px > 24 && px < 36 && pz < 71 && has('taller') ? 'Taller de restauración' : px > 40 && px < 62 && pz < 82 && state.town.dealer ? 'Tu agencia de autos' : px > -48 && px < -28 && pz < 78 && has('plaza') ? 'Plaza del barrio' : 'Frente a la calle') :
       Math.abs(px) < AISLE / 2 && Math.abs(pz) < L / 2 + 2 ? 'Pasillo' : px > 3.5 && px < 16.6 && pz > 21 && pz < 36 ? 'Patio de mi casa' : 'Exterior');
-  } else if (curPrompt) { curPrompt = ''; $('prompt').style.display = 'none'; $('cross').classList.remove('active'); }
+  } else if (curPrompt) { curPrompt = ''; $('prompt').style.display = 'none'; if (IS_MOBILE) $('bAct').classList.remove('ready'); $('cross').classList.remove('active'); }
 
   const fovT = aerial || touring ? 60 : 70 + Math.max(0, speedNow - 4.5) * 0.9;
   if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); }
